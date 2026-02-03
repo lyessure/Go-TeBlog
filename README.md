@@ -61,14 +61,17 @@ git clone https://github.com/lyessure/Go-TeBlog.git
 cd Go-TeBlog
 ```
 
-2. **编译运行**
+2. **初始化与一键部署**
+执行集成化的部署脚本。该脚本将自动执行以下操作：**环境检查**、**编译源码**（若无源码则使用现有二进制文件）、**建立并启动 Systemd 系统服务**，以及**初始化管理员账号**：
 ```bash
-bash build.sh
+sudo bash build.sh
 ```
+*提示：首次运行时，脚本会通过交互方式提示您设置管理员用户名和密码。*
 
 3. **访问博客**
 - 前台地址：`http://localhost:8190/blog`
-- 后台地址：`http://localhost:8190/admin`（默认账号：`admin` / `123456`）
+- 后台管理：`http://localhost:8190/admin`
+  - *安全建议：* 登录后可在后台“系统设置”中修改默认的 `/admin` 访问路径，以提高系统安全性。
 
 ### 生产部署建议
 
