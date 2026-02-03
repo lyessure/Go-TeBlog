@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>控制台 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin: 10px 0 30px 10px;
+            font-size: 1.25em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar h3 i {
+            color: #0984e3;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-menu:hover {
+            background: #f8fafc;
+        }
+
+        .user-menu:hover .dropdown {
+            display: block;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 160px;
+            border: 1px solid #e2e8f0;
+            margin-top: 8px;
+            z-index: 100;
+        }
+
+        .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .dropdown a {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: #475569;
+            text-decoration: none;
+            font-size: 13px;
+            border-radius: 6px;
+        }
+
+        .dropdown a:hover {
+            background: #f1f5f9;
+            color: #0984e3;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            margin-left: 240px;
+            margin-top: 70px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 1.75em;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .page-header p {
+            margin: 5px 0 0 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+        }
+
+        .icon-posts {
+            background: #e0f2fe;
+            color: #0ea5e9;
+        }
+
+        .icon-comments {
+            background: #fef3c7;
+            color: #f59e0b;
+        }
+
+        .icon-categories {
+            background: #dcfce7;
+            color: #10b981;
+        }
+
+        .icon-attachments {
+            background: #f3e8ff;
+            color: #a855f7;
+        }
+
+        .stat-info h3 {
+            margin: 0;
+            font-size: 0.9em;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .stat-info .value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 4px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header h2 {
+            margin: 0;
+            font-size: 1.1em;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-body {
+            padding: 25px;
+        }
+
+        .system-info-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .system-info-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+        }
+
+        .system-info-list li:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #64748b;
+        }
+
+        .info-value {
+            color: #1e293b;
+            font-weight: 500;
+            font-family: monospace;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .action-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #334155;
+            text-align: center;
+            transition: all 0.2s;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover {
+            background: #f0f7ff;
+            border-color: #0984e3;
+            color: #0984e3;
+            transform: scale(1.02);
+        }
+
+        .action-btn i {
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard" class="active"><i class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts"><i class="fas fa-file-alt"></i> 文章管理</a>
+        <a href="{{adminPath}}/categories"><i class="fas fa-list"></i> 分类管理</a>
+        <a href="{{adminPath}}/comments"><i class="fas fa-comments"></i> 评论管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
+            用户管理</a>
+        <a href="{{adminPath}}/settings"><i class="fas fa-cog"></i> 系统设置</a>
+
+        <a href="{{adminPath}}/backups"><i class="fas fa-database"></i> 数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="container">
+            <div class="page-header">
+                <div>
+                    <h1>控制台概览</h1>
+                    <p>欢迎回来，{{.Username}}。这是您站点的实时运行数据。</p>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon icon-posts"><i class="fas fa-file-alt"></i></div>
+                    <div class="stat-info">
+                        <h3>总文章数</h3>
+                        <div class="value">{{.PostCount}}</div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">本周新增: {{.WeekPostCount}}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-comments"><i class="fas fa-comments"></i></div>
+                    <div class="stat-info">
+                        <h3>总评论数</h3>
+                        <div class="value">{{.CommentCount}}</div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">本周新增: {{.WeekCommentCount}}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-categories"><i class="fas fa-list"></i></div>
+                    <div class="stat-info">
+                        <h3>总分类数</h3>
+                        <div class="value">{{.CategoryCount}}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-attachments"><i class="fas fa-paperclip"></i></div>
+                    <div class="stat-info">
+                        <h3>附件数量</h3>
+                        <div class="value">{{.AttachmentCount}}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #ecfdf5; color: #059669;"><i class="fas fa-eye"></i></div>
+                    <div class="stat-info">
+                        <h3>今日浏览 (PV)</h3>
+                        <div class="value">{{.TodayPV}} <span
+                                style="font-size: 0.6em; color: #94a3b8; font-weight: normal; margin-left: 5px;">/
+                                {{.TodayBotPV}} <small>(人机)</small></span></div>
+                        <div style="font-size: 11px; color: #10b981; margin-top: 4px;">{{.RetentionLabel}}: {{.TotalPV}}
+                            / {{.TotalBotPV}}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #f0f9ff; color: #0284c7;"><i
+                            class="fas fa-user-friends"></i></div>
+                    <div class="stat-info">
+                        <h3>今日访客 (IP)</h3>
+                        <div class="value">{{.TodayIP}} <span
+                                style="font-size: 0.6em; color: #94a3b8; font-weight: normal; margin-left: 5px;">/
+                                {{.TodayBotIP}} <small>(人机)</small></span></div>
+                        <div style="font-size: 11px; color: #0ea5e9; margin-top: 4px;">{{.RetentionLabel}}: {{.TotalIP}}
+                            / {{.TotalBotIP}}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-server"></i> 系统资源与环境</h2>
+                    </div>
+                    <div class="card-body">
+                        <ul class="system-info-list">
+                            <li><span class="info-label">系统环境</span><span class="info-value">{{.OS}} / {{.Arch}}
+                                    {{.CPUs}}C{{.TotalMem}}G {{.GoVersion}}</span></li>
+                            <li><span class="info-label">程序内存占用 (RSS)</span><span class="info-value">{{.MemUsed}}</span>
+                            </li>
+                            <li><span class="info-label">系统负载 (Load)</span><span class="info-value">{{.SysLoad}}</span>
+                            </li>
+                            <li><span class="info-label">磁盘空间进度</span><span class="info-value">{{.DiskFree}}</span></li>
+                            <li><span class="info-label">存储占用</span><span class="info-value">数据库: {{.DbSize}} / 附件:
+                                    {{.UploadSize}} / 备份: {{.BackupSize}}</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-rocket"></i> 快速操作</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="quick-actions">
+                            <a href="{{adminPath}}/posts?action=new" class="action-btn">
+                                <i class="fas fa-pen-nib"></i>
+                                <span>写新文章</span>
+                            </a>
+                            <a href="{{adminPath}}/settings" class="action-btn">
+                                <i class="fas fa-sliders-h"></i>
+                                <span>站点设置</span>
+                            </a>
+                            <a href="{{adminPath}}/backups" class="action-btn">
+                                <i class="fas fa-hdd"></i>
+                                <span>立即备份</span>
+                            </a>
+                            <a href="{{adminPath}}/categories" class="action-btn">
+                                <i class="fas fa-tag"></i>
+                                <span>管理分类</span>
+                            </a>
+                            <a href="javascript:void(0);" id="btn-restart-services" class="action-btn"
+                                style="border-color: #fecaca; color: #dc2626; background: #fff1f1;">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>重启服务</span>
+                            </a>
+                        </div>
+                        <div
+                            style="margin-top: 25px; padding: 15px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; font-size: 13px; color: #92400e;">
+                            <i class="fas fa-lightbulb"></i> <b>提示：</b> 定期备份数据可以有效防止不可预知的系统故障。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.getElementById('btn-restart-services').addEventListener('click', function () {
+            if (!confirm('确定要重启 blog 和 blogadmin 服务吗？重启期间后台和前台将暂时无法访问。')) {
+                return;
+            }
+
+            const btn = this;
+            const originalContent = btn.innerHTML;
+            btn.style.pointerEvents = 'none';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>正在发送请求...</span>';
+
+            fetch('{{adminPath}}/system/restart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        btn.innerHTML = '<i class="fas fa-check"></i><span>指令已发送</span>';
+                        btn.style.background = '#dcfce7';
+                        btn.style.color = '#15803d';
+                        btn.style.borderColor = '#bbf7d0';
+
+                        alert(data.message);
+                        // 10秒后尝试刷新
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 10000);
+                    } else {
+                        alert('错误: ' + data.message);
+                        btn.innerHTML = originalContent;
+                        btn.style.pointerEvents = 'auto';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // 这种情况通常是因为服务正在重启，连接被重置
+                    btn.innerHTML = '<i class="fas fa-clock"></i><span>正在重启中...</span>';
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 8000);
+                });
+        });
+    </script>
+</body>
+
+</html>

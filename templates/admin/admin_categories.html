@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>分类管理 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin: 10px 0 30px 10px;
+            font-size: 1.25em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar h3 i {
+            color: #0984e3;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            margin-left: 240px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            padding-top: 100px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-menu:hover {
+            background: #fff;
+            border-color: #cbd5e1;
+        }
+
+        .user-menu .dropdown {
+            position: absolute;
+            top: 100%;
+            margin-top: 5px;
+            right: 0;
+            background: #fff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            padding: 8px 0;
+            z-index: 100;
+        }
+
+        /* Bridge to keep dropdown open when mouse is between trigger and dropdown */
+        .user-menu .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .user-menu:hover .dropdown {
+            display: flex;
+        }
+
+        .dropdown a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #475569;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown a:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .list-container {
+            flex: 2;
+        }
+
+        .form-container,
+        .table-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .form-container {
+            flex: 1;
+            position: sticky;
+            top: 80px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #1f2937;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 16px 12px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        /* Allow Name column to wrap if needed, or set a max width */
+        td.cat-name {
+            white-space: normal;
+            min-width: 120px;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #4b5563;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-submit {
+            background: #10b981;
+            color: white;
+            width: 100%;
+            margin-top: 20px;
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            box-sizing: border-box;
+            background: #f9fafb;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        form.inline-form {
+            display: inline;
+        }
+
+        /* Drag and Drop Styles */
+        .drag-handle {
+            cursor: grab;
+            color: #94a3b8;
+            padding-right: 0 !important;
+            width: 30px;
+            text-align: center;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        tr.dragging {
+            opacity: 0.5;
+            background: #f8fafc;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        tr.drop-target {
+            border-top: 2px solid #0984e3;
+        }
+
+        .reordering-indicator {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #2d3436;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Pagination Styles */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 30px;
+            padding-bottom: 10px;
+        }
+
+        .pagination a,
+        .pagination span {
+            padding: 8px 14px;
+            border-radius: 8px;
+            background: white;
+            color: #475569;
+            text-decoration: none;
+            font-size: 14px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+
+        .pagination a:hover {
+            border-color: #0984e3;
+            color: #0984e3;
+        }
+
+        .pagination .active {
+            background: #0984e3;
+            color: white;
+            border-color: #0984e3;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
+                class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts" {{if eq .Tab "posts" }}class="active" {{end}}><i class="fas fa-file-alt"></i>
+            文章管理</a>
+        <a href="{{adminPath}}/categories" {{if eq .Tab "categories" }}class="active" {{end}}><i
+                class="fas fa-list"></i>
+            分类管理</a>
+        <a href="{{adminPath}}/comments" {{if eq .Tab "comments" }}class="active" {{end}}><i
+                class="fas fa-comments"></i>
+            评论管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
+            用户管理</a>
+        <a href="{{adminPath}}/settings" {{if eq .Tab "settings" }}class="active" {{end}}><i class="fas fa-cog"></i>
+            系统设置</a>
+
+        <a href="{{adminPath}}/backups" {{if eq .Tab "backups" }}class="active" {{end}}><i class="fas fa-database"></i>
+            数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <div id="reorder-status" class="reordering-indicator">
+            <i class="fas fa-spinner fa-spin"></i> 正在保存排序...
+        </div>
+        <div class="list-container table-card">
+            <h2>分类列表</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30px;"></th>
+                        <th>序号</th>
+                        <th>名称</th>
+                        <th>缩略名</th>
+                        <th>首页显示</th>
+                        <th>状态</th>
+                        <th>文章数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="category-table-body">
+                    {{range .Categories}}
+                    <tr draggable="true" data-mid="{{.Mid}}">
+                        <td class="drag-handle"><i class="fas fa-grip-lines"></i></td>
+                        <td class="order-cell" style="font-weight: 600; color: #636e72;">{{.Order}}</td>
+                        <td class="cat-name">{{.Name}}</td>
+                        <td>{{.Slug}}</td>
+                        <td>
+                            {{if .ShowOnHome}}
+                            <span style="color: #10b981;"><i class="fas fa-check-circle"></i> 显示</span>
+                            {{else}}
+                            <span style="color: #6b7280;"><i class="fas fa-times-circle"></i> 隐藏</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .IsOffline}}
+                            <span style="color: #ef4444;"><i class="fas fa-eye-slash"></i> 已下线</span>
+                            {{else}}
+                            <span style="color: #10b981;"><i class="fas fa-check-circle"></i> 正常</span>
+                            {{end}}
+                        </td>
+                        <td>{{.Count}}</td>
+                        <td>
+                            <button class="btn btn-edit" data-mid="{{.Mid}}" data-name="{{.Name}}" data-slug="{{.Slug}}"
+                                data-order="{{.Order}}" data-show="{{if .ShowOnHome}}1{{else}}0{{end}}"
+                                data-offline="{{if .IsOffline}}1{{else}}0{{end}}"
+                                onclick="editCategoryBtn(this)">编辑</button>
+                            <form action="{{adminPath}}/category/delete/{{.Mid}}" method="POST" class="inline-form"
+                                onsubmit="return confirm('确定要删除这个分类吗？')">
+                                <button type="submit" class="btn btn-delete">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+
+            {{if gt .TotalPages 1}}
+            <div class="pagination">
+                {{if .HasPrev}}
+                <a href="?page={{.PrevPage}}"><i class="fas fa-chevron-left"></i> 上一页</a>
+                {{end}}
+
+                {{range $p := pageRange .CurrentPage .TotalPages}}
+                {{if eq $p $.CurrentPage}}
+                <span class="active">{{$p}}</span>
+                {{else}}
+                <a href="?page={{$p}}">{{$p}}</a>
+                {{end}}
+                {{if and (eq $p (sub $.TotalPages 1)) (lt $p (sub $.TotalPages 1))}}
+                <span>...</span>
+                {{end}}
+                {{end}}
+
+                {{if .HasNext}}
+                <a href="?page={{.NextPage}}">下一页 <i class="fas fa-chevron-right"></i></a>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+
+        <div class="form-container">
+            <h2 id="form-title">添加分类</h2>
+            <form action="{{adminPath}}/category/save" method="POST">
+                <input type="hidden" name="mid" id="field-mid" value="0">
+                <div class="form-group">
+                    <label>分类名称</label>
+                    <input type="text" name="name" id="field-name" required placeholder="例如：生活随记">
+                </div>
+                <div class="form-group">
+                    <label>分类缩略名</label>
+                    <input type="text" name="slug" id="field-slug" required placeholder="例如：life">
+                </div>
+                <div class="form-group">
+                    <label>显示序号 (数字越小越靠前)</label>
+                    <input type="number" name="order" id="field-order" value="0" min="0">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                    <input type="checkbox" name="showOnHome" id="field-showOnHome" value="1" checked
+                        style="width: auto;">
+                    <label for="field-showOnHome" style="margin-bottom: 0;">允许出现在首页</label>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                    <input type="checkbox" name="isOffline" id="field-isOffline" value="1" style="width: auto;">
+                    <label for="field-isOffline" style="margin-bottom: 0; color: #ef4444;">下线该分类（全站隐藏并禁止访问）</label>
+                </div>
+                <button type="submit" class="btn btn-submit">保存分类</button>
+                <button type="button" class="btn" style="width:100%; margin-top:10px; background:#9ca3af; color:white"
+                    onclick="resetForm()">取消编辑</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function editCategoryBtn(btn) {
+            const mid = btn.getAttribute('data-mid');
+            const name = btn.getAttribute('data-name');
+            const slug = btn.getAttribute('data-slug');
+            const order = btn.getAttribute('data-order');
+            const showOnHome = btn.getAttribute('data-show') === '1';
+            const isOffline = btn.getAttribute('data-offline') === '1';
+
+            document.getElementById('form-title').innerText = '编辑分类';
+            document.getElementById('field-mid').value = mid;
+            document.getElementById('field-name').value = name;
+            document.getElementById('field-slug').value = slug;
+            document.getElementById('field-order').value = order;
+            document.getElementById('field-showOnHome').checked = showOnHome;
+            document.getElementById('field-isOffline').checked = isOffline;
+        }
+
+        function resetForm() {
+            document.getElementById('form-title').innerText = '添加分类';
+            document.getElementById('field-mid').value = '0';
+            document.getElementById('field-name').value = '';
+            document.getElementById('field-slug').value = '';
+            document.getElementById('field-order').value = '0';
+            document.getElementById('field-showOnHome').checked = true;
+            document.getElementById('field-isOffline').checked = false;
+        }
+
+        // Drag and Drop Logic
+        const tbody = document.getElementById('category-table-body');
+        let dragSrcEl = null;
+
+        function handleDragStart(e) {
+            this.classList.add('dragging');
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            const target = e.target.closest('tr');
+            if (target && target !== dragSrcEl) {
+                const rect = target.getBoundingClientRect();
+                const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+                tbody.insertBefore(dragSrcEl, next ? target.nextSibling : target);
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            updateOrders();
+        }
+
+        function updateOrders() {
+            const rows = tbody.querySelectorAll('tr');
+            const orders = [];
+            const indicator = document.getElementById('reorder-status');
+
+            indicator.style.display = 'flex';
+            indicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在保存排序...';
+
+            rows.forEach((row, index) => {
+                const mid = row.getAttribute('data-mid');
+                const pageOffset = ({{.CurrentPage}} - 1) * 20;
+            const order = pageOffset + index + 1; // 根据当前页偏移计算序号
+            row.querySelector('.order-cell').innerText = order;
+            orders.push({ mid: parseInt(mid), order: order });
+        });
+
+        fetch('{{adminPath}}/category/reorder', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ orders: orders })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    indicator.innerHTML = '<i class="fas fa-check-circle" style="color: #10b981;"></i> 排序已更新';
+                    setTimeout(() => {
+                        indicator.style.display = 'none';
+                    }, 2000);
+                } else {
+                    indicator.innerHTML = '<i class="fas fa-exclamation-circle" style="color: #ef4444;"></i> 保存失败: ' + data.message;
+                }
+            })
+            .catch(error => {
+                indicator.innerHTML = '<i class="fas fa-exclamation-circle" style="color: #ef4444;"></i> 网络错误';
+                console.error('Error:', error);
+            });
+        }
+
+        function initDraggable() {
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                row.addEventListener('dragstart', handleDragStart, false);
+                row.addEventListener('dragover', handleDragOver, false);
+                row.addEventListener('dragend', handleDragEnd, false);
+            });
+        }
+
+        initDraggable();
+    </script>
+</body>
+
+</html>

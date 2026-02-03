@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>编辑文章 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f3f4f6;
+        }
+
+        .sidebar {
+            width: 220px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 30px 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin-bottom: 30px;
+            font-size: 1.2em;
+            letter-spacing: 1px;
+            padding-left: 10px;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 12px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 10px;
+            width: 18px;
+            text-align: center;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            gap: 20px;
+            background: #f8fafc;
+            margin-left: 220px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding-top: 80px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 220px;
+            right: 0;
+            height: 60px;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #4b5563;
+        }
+
+        .user-menu:hover {
+            background: #f3f4f6;
+        }
+
+        .user-menu .dropdown {
+            position: absolute;
+            top: 100%;
+            margin-top: 5px;
+            right: 0;
+            background: #fff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            min-width: 160px;
+            display: none;
+            flex-direction: column;
+            padding: 5px 0;
+            z-index: 100;
+        }
+
+        /* Bridge to keep dropdown open when mouse is between trigger and dropdown */
+        .user-menu .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .user-menu:hover .dropdown {
+            display: flex;
+        }
+
+        .dropdown a {
+            padding: 10px 15px;
+            text-decoration: none !important;
+            color: #4b5563 !important;
+            font-size: 14px;
+            transition: background 0.2s;
+            background: none !important;
+            box-shadow: none !important;
+            display: block !important;
+            margin-bottom: 0 !important;
+        }
+
+        .dropdown a:hover {
+            background: #f9fafb !important;
+            color: #111827 !important;
+        }
+
+        .main-edit {
+            flex: 3;
+        }
+
+        .side-panel {
+            flex: 1;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            align-self: flex-start;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        textarea {
+            height: 650px !important;
+            font-family: "Courier New", Courier, monospace;
+            line-height: 1.6;
+            resize: vertical;
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .attachment-box {
+            margin-top: 20px;
+        }
+
+        .attachment-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f9f9f9;
+            font-size: 13px;
+        }
+
+        .attachment-item span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 130px;
+            cursor: pointer;
+            color: #3b82f6;
+        }
+
+        .btn-del-att {
+            color: #ef4444;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #666;
+            background: #fef3c7;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-100px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        .md-guide {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px dashed #f1f5f9;
+        }
+
+        .md-guide h4 {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .md-guide-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .md-item {
+            font-size: 12px;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #f1f5f9;
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .md-item b {
+            color: #0ea5e9;
+            font-weight: 600;
+        }
+
+        .md-item span {
+            color: #94a3b8;
+            font-size: 11px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toast" class="toast">保存成功！</div>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
+                class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts" class="active"><i class="fas fa-file-alt"></i> 文章管理</a>
+        <a href="{{adminPath}}/categories"><i class="fas fa-list"></i> 分类管理</a>
+        <a href="{{adminPath}}/comments"><i class="fas fa-comments"></i> 评论管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
+            用户管理</a>
+        <a href="{{adminPath}}/settings"><i class="fas fa-cog"></i> 系统设置</a>
+
+        <a href="{{adminPath}}/backups"><i class="fas fa-database"></i> 数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="main-edit">
+            <form action="{{adminPath}}/save" method="POST" id="post-form">
+                <input type="hidden" name="cid" id="post-cid" value="{{.Post.Cid}}">
+                <div class="form-group">
+                    <label>标题</label>
+                    <input type="text" name="title" value="{{.Post.Title}}" required placeholder="输入文章标题">
+                </div>
+                <div class="form-group">
+                    <label>缩略名 (Slug)</label>
+                    <input type="text" name="slug" value="{{.Post.Slug}}" placeholder="post-slug (留空则自动生成)">
+                </div>
+                <div class="form-group">
+                    <label>分类</label>
+                    <div style="background: #fff; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px;">
+                        {{range .Categories}}
+                        <label style="display: inline-block; margin-right: 15px; font-weight: normal; cursor: pointer;">
+                            <input type="checkbox" name="categories" value="{{.Mid}}" {{if .Selected}}checked{{end}}>
+                            {{.Name}}
+                        </label>
+                        {{else}}
+                        <span style="color: #999; font-size: 13px;">暂无分类</span>
+                        {{end}}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>内容 (支持 Ctrl+V 粘贴图片上传)</label>
+                    <textarea id="editor" name="text" placeholder="在这里输入内容...">{{.Post.Text}}</textarea>
+                </div>
+            </form>
+        </div>
+
+        <div class="side-panel">
+            <button type="button" class="btn-save" onclick="document.getElementById('post-form').submit()">保存文章</button>
+
+            <div class="attachment-box">
+                <label>附件管理</label>
+                <div class="upload-hint">提示：直接在内容框粘贴图片或拖入图片即可自动上传。</div>
+                <ul class="attachment-list" id="attachment-list">
+                    {{range .Attachments}}
+                    <li class="attachment-item">
+                        <span onclick="insertAtCursor('![]({{.Path}})')" title="点击插入">{{.Title}}</span>
+                        <form action="{{adminPath}}/attachment/delete/{{.Cid}}?parent={{$.Post.Cid}}" method="POST"
+                            style="display:inline">
+                            <button type="submit" class="btn-del-att">删除</button>
+                        </form>
+                    </li>
+                    {{else}}
+                    <li style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>
+                    {{end}}
+                </ul>
+            </div>
+
+            <div class="md-guide">
+                <h4><i class="fas fa-info-circle"></i> Markdown 速查</h4>
+                <div class="md-guide-grid">
+                    <div class="md-item"><b># 标题内容</b> <span>一级标题</span></div>
+                    <div class="md-item"><b>## 标题内容</b> <span>二级标题</span></div>
+                    <div class="md-item"><b>**加粗文字**</b> <span>强调</span></div>
+                    <div class="md-item"><b>*斜体文字*</b> <span>倾斜</span></div>
+                    <div class="md-item"><b>> 引用内容</b> <span>引用块</span></div>
+                    <div class="md-item"><b>- 列表项目</b> <span>无序列表</span></div>
+                    <div class="md-item"><b>1. 列表项目</b> <span>有序列表</span></div>
+                    <div class="md-item"><b>`行内代码`</b> <span>突出显示</span></div>
+                    <div class="md-item"><b>```语言...```</b> <span>代码块</span></div>
+                    <div class="md-item"><b>[描述](链接)</b> <span>超链接</span></div>
+                    <div class="md-item"><b>![描述](图片)</b> <span>外链图片</span></div>
+                    <div class="md-item"><b>---</b> <span>分割线</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const postCid = document.getElementById('post-cid').value;
+
+        editor.addEventListener('paste', function (e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    const file = items[i].getAsFile();
+                    if (!file) continue;
+
+                    // Use canvas to convert to JPEG
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        const img = new Image();
+                        img.onload = function () {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            const ctx = canvas.getContext('2d');
+
+                            // Fill background with white (for transparent PNGs)
+                            ctx.fillStyle = '#fff';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 0, 0);
+
+                            canvas.toBlob(function (blob) {
+                                const newFile = new File([blob], "pasted-image.jpg", { type: "image/jpeg" });
+                                uploadFile(newFile);
+                            }, 'image/jpeg', 0.85); // 0.85 quality
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                    e.preventDefault();
+                }
+            }
+        });
+
+        editor.addEventListener('drop', function (e) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            for (let i = 0; i < files.length; i++) {
+                uploadFile(files[i]);
+            }
+        });
+
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('editormd-image-file', file);
+            formData.append('cid', postCid);
+
+            insertAtCursor("\n![正在上传 " + file.name + "...]()\n");
+
+            fetch('{{adminPath}}/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const search = "![正在上传 " + file.name + "...]()";
+                    const replace = "![" + file.name + "](" + data.url + ")";
+                    editor.value = editor.value.replace(search, replace);
+
+                    if (data.success) {
+                        const li = document.createElement('li');
+                        li.className = 'attachment-item';
+                        li.innerHTML = `<span onclick="insertAtCursor('![](${data.url})')">${data.url.split('/').pop()}</span><span style="color:#10b981;font-size:10px">(刚刚)</span>`;
+                        document.getElementById('attachment-list').appendChild(li);
+                    } else {
+                        alert("上传失败: " + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("上传出错");
+                });
+        }
+
+        function insertAtCursor(text) {
+            const startPos = editor.selectionStart;
+            const endPos = editor.selectionEnd;
+            editor.value = editor.value.substring(0, startPos) + text + editor.value.substring(endPos, editor.value.length);
+            editor.selectionStart = editor.selectionEnd = startPos + text.length;
+            editor.focus();
+        }
+
+        window.onload = function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('msg') === 'saved') {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+
+</html>

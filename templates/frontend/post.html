@@ -1,0 +1,181 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    {{if .Site.Description}}
+    <meta name="description" content="{{.Site.Description}}">{{end}}
+    <title>{{.Post.Title}} - {{.Site.Title}}</title>
+    {{if .Site.Keywords}}
+    <meta name="keywords" content="{{.Site.Keywords}}">{{end}}
+    <link rel="stylesheet" href="/blog/usr/themes/default/normalize.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/grid.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/style.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/go-custom.css">
+</head>
+
+<body>
+
+    <header id="header" class="clearfix">
+        <div class="container">
+            <div class="site-header">
+                <div class="site-name">
+                    <!-- 留空 -->
+                </div>
+                <div class="site-search">
+                    <form id="search" method="post" action="/blog/" role="search">
+                        <label for="s" class="sr-only">搜索关键字</label>
+                        <input type="text" id="s" name="s" class="text" placeholder="输入关键字搜索" />
+                        <button type="submit" class="submit">搜索</button>
+                    </form>
+                </div>
+                <button class="mobile-menu-toggle">
+                    <span class="hamburger"></span>
+                </button>
+            </div>
+            <nav id="nav-menu" class="clearfix" role="navigation">
+                <a{{if eq .CurrentSlug "" }} class="current" {{end}} href="/blog">博客首页</a>
+                    {{range .Categories}}
+                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink $.Site.SiteUrl .}}"
+                        title="{{.Name}}">{{.Name}}</a>
+                        {{end}}
+            </nav>
+        </div>
+    </header>
+
+    <div id="body">
+        <div class="container">
+            <div class="row">
+
+                <div class="col-mb-12 col-8" id="main" role="main">
+                    <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+                        <h1 class="post-title" itemprop="name headline">
+                            <a itemprop="url" href="{{permalink $.Site.SiteUrl .Post}}">{{.Post.Title}}</a>
+                        </h1>
+                        <ul class="post-meta">
+                            <li><i class="fas fa-user"></i> <span class="author-name">{{if
+                                    .Post.Author}}{{.Post.Author}}{{else}}admin{{end}}</span></li>
+                            <li><i class="fas fa-calendar"></i> <time datetime="{{formatDateTime .Post.Created}}"
+                                    itemprop="datePublished">{{formatDate
+                                    .Post.Created}}</time></li>
+                            <li><i class="fas fa-folder"></i>
+                                {{range $i, $cat := .Post.Categories}}
+                                {{if $i}}, {{end}}<a href="{{catPermalink $.Site.SiteUrl $cat}}">{{$cat.Name}}</a>
+                                {{end}}
+                            </li>
+                        </ul>
+                        <div class="post-content" itemprop="articleBody">
+                            {{renderMarkdown .Post.Text}}
+                        </div>
+                        <p itemprop="keywords" class="tags">标签:
+                            {{if .Tags}}
+                            {{range $i, $tag := .Tags}}
+                            {{if $i}}, {{end}}<a href="/blog/category/{{$tag.Slug}}/">{{$tag.Name}}</a>
+                            {{end}}
+                            {{else}}
+                            none
+                            {{end}}
+                        </p>
+                    </article>
+
+                    <div id="comments">
+                        {{if .Comments}}
+                        <h3>已有 {{len .Comments}} 条评论</h3>
+                        <ol class="comment-list">
+                            {{range .Comments}}
+                            <li class="comment-body">
+                                <div class="comment-author">
+                                    <span class="fn">{{.Author}}</span>
+                                </div>
+                                <div class="comment-meta">
+                                    <a href="#">{{formatDate .Created}}</a>
+                                </div>
+                                <div class="comment-content">{{.Text}}</div>
+                            </li>
+                            {{end}}
+                        </ol>
+                        {{else}}
+                        <h3>暂无评论</h3>
+                        {{end}}
+
+                        {{if .CommentsEnabled}}
+                        <div id="respond-post-{{.Post.Cid}}" class="respond">
+                            <h3 id="response">添加新评论</h3>
+                            <form method="post" action="/blog/index.php/archives/{{.Post.Cid}}/comment"
+                                id="comment-form" role="form">
+                                <p>
+                                    <label for="author" class="required">称呼</label>
+                                    <input type="text" name="author" id="author" class="text" required />
+                                </p>
+                                <p>
+                                    <label for="textarea" class="required">内容</label>
+                                    <textarea rows="8" cols="50" name="words" id="textarea" class="textarea"
+                                        required></textarea>
+                                </p>
+                                <p>
+                                    <button type="submit" class="submit">提交评论</button>
+                                </p>
+                            </form>
+                        </div>
+                        {{else}}
+                        <div class="respond">
+                            <h3 id="response">评论已关闭</h3>
+                            <p
+                                style="color: #64748b; font-size: 14px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px dashed #e2e8f0; text-align: center;">
+                                <i class="fas fa-comment-slash" style="margin-right: 8px;"></i> 此文章的评论功能已关闭。
+                            </p>
+                        </div>
+                        {{end}}
+                    </div>
+
+                    <ul class="post-near">
+                        <li>上一篇: {{if .PrevPost}}<a
+                                href="{{permalink $.Site.SiteUrl .PrevPost}}">{{.PrevPost.Title}}</a>{{else}}没有了{{end}}
+                        </li>
+                        <li>下一篇: {{if .NextPost}}<a
+                                href="{{permalink $.Site.SiteUrl .NextPost}}">{{.NextPost.Title}}</a>{{else}}没有了{{end}}
+                        </li>
+                    </ul>
+                </div><!-- end #main-->
+
+                <div class="col-mb-12 col-4 kit-hidden-tb" id="secondary" role="complementary">
+                    <section class="widget">
+                        <h3 class="widget-title">最新文章</h3>
+                        <ul class="widget-list">
+                            {{range .RecentPosts}}
+                            <li><a href="{{permalink $.Site.SiteUrl .}}">{{.Title}}</a></li>
+                            {{end}}
+                        </ul>
+                    </section>
+
+                    <section class="widget">
+                        <h3 class="widget-title">最近评论</h3>
+                        <ul class="widget-list">
+                            {{range .RecentComments}}
+                            <li class="comment-item">
+                                <a href="{{commPermalink $.Site.SiteUrl .}}">{{.Author}}</a>: {{.Text}}
+                            </li>
+                            {{end}}
+                        </ul>
+                    </section>
+                </div><!-- end #sidebar -->
+
+            </div><!-- end .row -->
+        </div>
+    </div><!-- end #body -->
+
+    <footer id="footer" role="contentinfo">
+        <div class="footer-branding">
+            <div>&copy; {{now.Format "2006"}} <a href="https://github.com/lyessure/Go-TeBlog" target="_blank"
+                    class="go-badge" style="text-decoration: none;">⚡ Go-TeBlog</a></div>
+            <div style="font-size: 11px; margin-top: 6px; opacity: 0.7;">Idea from Typecho</div>
+        </div>
+    </footer>
+
+    <script src="/blog/usr/themes/default/js/mobile-nav.js"></script>
+    {{.Site.FooterCode}}
+</body>
+
+</html>

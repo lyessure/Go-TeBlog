@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>文章管理 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin: 10px 0 30px 10px;
+            font-size: 1.25em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar h3 i {
+            color: #0984e3;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            margin-left: 240px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding-top: 100px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-menu:hover {
+            background: #fff;
+            border-color: #cbd5e1;
+        }
+
+        .user-menu .dropdown {
+            position: absolute;
+            top: 100%;
+            margin-top: 5px;
+            right: 0;
+            background: #fff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            padding: 8px 0;
+            z-index: 100;
+        }
+
+        /* Bridge to keep dropdown open when mouse is between trigger and dropdown */
+        .user-menu .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .user-menu:hover .dropdown {
+            display: flex;
+        }
+
+        .dropdown a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #475569;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown a:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: #f9fafb;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        form.inline-form {
+            display: inline;
+        }
+
+        .btn-new {
+            background: #10b981;
+            color: white;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .pager {
+            margin-top: 20px;
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            font-size: 14px;
+            color: #606266;
+        }
+
+        .pager a,
+        .pager span.page-num {
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #606266;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .pager a:hover {
+            color: #0984e3;
+            border-color: #0984e3;
+        }
+
+        .pager span.page-num.active {
+            background: #0984e3;
+            color: white;
+            border-color: #0984e3;
+        }
+
+        .pager span.ellipsis {
+            min-width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #909399;
+            letter-spacing: 1px;
+        }
+
+        .pager span.nav-arrow {
+            min-width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            color: #c0c4cc;
+            cursor: not-allowed;
+        }
+
+        .pager .goto-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 12px;
+            color: #606266;
+        }
+
+        .pager .goto-box input {
+            width: 50px;
+            height: 32px;
+            padding: 0 8px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .pager .goto-box input:focus {
+            border-color: #0984e3;
+        }
+
+        /* Switch styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 22px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #10b981;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(22px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
+                class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts" {{if eq .Tab "posts" }}class="active" {{end}}><i class="fas fa-file-alt"></i>
+            文章管理</a>
+        <a href="{{adminPath}}/categories" {{if eq .Tab "categories" }}class="active" {{end}}><i
+                class="fas fa-list"></i>
+            分类管理</a>
+        <a href="{{adminPath}}/comments" {{if eq .Tab "comments" }}class="active" {{end}}><i
+                class="fas fa-comments"></i>
+            评论管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
+            用户管理</a>
+        <a href="{{adminPath}}/settings" {{if eq .Tab "settings" }}class="active" {{end}}><i class="fas fa-cog"></i>
+            系统设置</a>
+
+        <a href="{{adminPath}}/backups" {{if eq .Tab "backups" }}class="active" {{end}}><i class="fas fa-database"></i>
+            数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <a href="{{adminPath}}/edit/new" class="btn btn-new">发布新文章</a>
+        <table>
+            <thead>
+                <tr>
+                    <th>标题</th>
+                    <th>日期</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Posts}}
+                <tr>
+                    <td>{{.Title}}</td>
+                    <td>{{.Created}}</td>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" {{if eq .Status "publish" }}checked{{end}}
+                                onchange="toggleStatus({{.Cid}}, this)">
+                            <span class="slider"></span>
+                        </label>
+                    </td>
+                    <td>
+                        <a href="{{adminPath}}/edit/{{.Cid}}" class="btn btn-edit">编辑</a>
+                        <form action="{{adminPath}}/post/delete/{{.Cid}}" method="POST" class="inline-form"
+                            onsubmit="return confirm('确定要删除这篇文章吗？删除后无法恢复！')">
+                            <button type="submit" class="btn btn-delete">删除</button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+
+        {{if gt .TotalPages 1}}
+        <div class="pager">
+            <!-- 上一页 -->
+            {{if .HasPrev}}
+            <a href="?page={{.PrevPage}}">&lt;</a>
+            {{else}}
+            <span class="nav-arrow">&lt;</span>
+            {{end}}
+
+            <!-- 页码 -->
+            {{$current := .CurrentPage}}
+            {{$total := .TotalPages}}
+
+            {{if le $total 7}}
+            {{range $i := iterate 1 $total}}
+            {{if eq $i $current}}
+            <span class="page-num active">{{$i}}</span>
+            {{else}}
+            <a href="?page={{$i}}">{{$i}}</a>
+            {{end}}
+            {{end}}
+            {{else}}
+            <!-- 总是显示第1页 -->
+            {{if eq $current 1}}
+            <span class="page-num active">1</span>
+            {{else}}
+            <a href="?page=1">1</a>
+            {{end}}
+
+            <!-- 前省略号 -->
+            {{if gt $current 4}}
+            <span class="ellipsis">···</span>
+            {{end}}
+
+            <!-- 当前页附近的页码 -->
+            {{range $i := pageRange $current $total}}
+            {{if eq $i $current}}
+            <span class="page-num active">{{$i}}</span>
+            {{else}}
+            <a href="?page={{$i}}">{{$i}}</a>
+            {{end}}
+            {{end}}
+
+            <!-- 后省略号 -->
+            {{if lt $current (sub $total 3)}}
+            <span class="ellipsis">···</span>
+            {{end}}
+
+            <!-- 总是显示最后一页 -->
+            {{if eq $current $total}}
+            <span class="page-num active">{{$total}}</span>
+            {{else}}
+            <a href="?page={{$total}}">{{$total}}</a>
+            {{end}}
+            {{end}}
+
+            <!-- 下一页 -->
+            {{if .HasNext}}
+            <a href="?page={{.NextPage}}">&gt;</a>
+            {{else}}
+            <span class="nav-arrow">&gt;</span>
+            {{end}}
+
+            <!-- 前往输入框 -->
+            <div class="goto-box">
+                <span>前往</span>
+                <input type="number" id="gotoPage" min="1" max="{{.TotalPages}}" value="{{.CurrentPage}}"
+                    onkeydown="if(event.key==='Enter')gotoPage()">
+                <span>页</span>
+            </div>
+        </div>
+        <script>
+            function gotoPage() {
+                var page = parseInt(document.getElementById('gotoPage').value);
+                var total = {{.TotalPages}};
+            if (page >= 1 && page <= total) {
+                window.location.href = '?page=' + page;
+            }
+        }
+        </script>
+        {{end}}
+    </div>
+    <script>
+        function toggleStatus(cid, checkbox) {
+            const originalChecked = !checkbox.checked;
+            fetch('{{adminPath}}/post/toggle/' + cid, {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert('操作失败: ' + data.message);
+                        checkbox.checked = originalChecked;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('网络错误');
+                    checkbox.checked = originalChecked;
+                });
+        }
+    </script>
+</body>
+
+</html>

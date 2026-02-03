@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>数据备份 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin: 10px 0 30px 10px;
+            font-size: 1.25em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar h3 i {
+            color: #0984e3;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-menu:hover {
+            background: #f8fafc;
+        }
+
+        .user-menu:hover .dropdown {
+            display: block;
+        }
+
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 160px;
+            border: 1px solid #e2e8f0;
+            margin-top: 8px;
+            z-index: 100;
+        }
+
+        .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .dropdown a {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: #475569;
+            text-decoration: none;
+            font-size: 13px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .dropdown a:hover {
+            background: #f1f5f9;
+            color: #0984e3;
+        }
+
+        .dropdown a i {
+            margin-right: 10px;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            margin-left: 240px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding-top: 100px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #fcfdfe;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8fafc;
+            text-align: left;
+            padding: 15px 30px;
+            font-weight: 600;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        td {
+            padding: 15px 30px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            font-size: 14px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: none;
+        }
+
+        .btn-primary {
+            background: #0984e3;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(9, 132, 227, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #0873c4;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 10px -1px rgba(9, 132, 227, 0.4);
+        }
+
+        .btn-outline {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+
+        .btn-outline:hover {
+            border-color: #0984e3;
+            color: #0984e3;
+            background: #f0f7ff;
+        }
+
+        .btn-danger {
+            color: #ef4444;
+            background: white;
+            border: 1px solid #fee2e2;
+        }
+
+        .btn-danger:hover {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .alert {
+            padding: 16px 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid transparent;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            color: #166534;
+            border-color: #bbf7d0;
+        }
+
+        .alert-danger {
+            background: #fef2f2;
+            color: #991b1b;
+            border-color: #fecaca;
+        }
+
+        .empty-state {
+            padding: 80px 0;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 4em;
+            margin-bottom: 20px;
+            color: #e2e8f0;
+        }
+
+        .inline-form {
+            display: inline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
+                class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts"><i class="fas fa-file-alt"></i> 文章管理</a>
+        <a href="{{adminPath}}/categories"><i class="fas fa-list"></i> 分类管理</a>
+        <a href="{{adminPath}}/comments"><i class="fas fa-comments"></i> 评论管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
+            用户管理</a>
+        <a href="{{adminPath}}/settings"><i class="fas fa-cog"></i> 系统设置</a>
+
+        <a href="{{adminPath}}/backups" {{if eq .Tab "backups" }}class="active" {{end}}><i class="fas fa-database"></i>
+            数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="container">
+            {{if .IsBackingUp}}
+            <div class="alert" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">
+                <i class="fas fa-spinner fa-spin"></i> 备份任务正在后台运行中，请稍后刷新查看结果...
+            </div>
+            {{end}}
+
+            <header>
+                <h2><i class="fas fa-database" style="color: #0984e3;"></i> 数据备份</h2>
+                <div style="display: flex; gap: 10px;">
+                    <form action="{{adminPath}}/backups/vacuum" method="POST" class="inline-form"
+                        onsubmit="return confirm('压缩数据库将重新整理文件并释放空间，可能需要几秒钟，确定继续吗？')">
+                        <button type="submit" class="btn btn-outline" {{if .IsBackingUp}}disabled
+                            style="opacity: 0.6; cursor: not-allowed;" {{end}}>
+                            <i class="fas fa-compress-alt"></i> 压缩数据库 (VACUUM)
+                        </button>
+                    </form>
+                    <form action="{{adminPath}}/backups/create" method="POST" class="inline-form">
+                        <button type="submit" class="btn btn-primary" {{if .IsBackingUp}}disabled
+                            style="opacity: 0.6; cursor: not-allowed;" {{end}}>
+                            <i class="fas fa-plus"></i> 创建新备份
+                        </button>
+                    </form>
+                </div>
+            </header>
+
+            {{if and .SuccessMessage (not .IsBackingUp)}}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> {{.SuccessMessage}}
+            </div>
+            {{end}}
+
+            {{if .ErrorMessage}}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i> {{.ErrorMessage}}
+            </div>
+            {{end}}
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> 备份历史列表</h3>
+                </div>
+                {{if .Backups}}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>大小</th>
+                            <th>创建时间</th>
+                            <th style="text-align: right;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Backups}}
+                        <tr>
+                            <td
+                                style="font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; color: #475569;">
+                                {{.Name}}</td>
+                            <td>{{.Size}}</td>
+                            <td>{{.Time}}</td>
+                            <td style="text-align: right;">
+                                <form action="{{adminPath}}/backups/delete/{{.Name}}" method="POST" class="inline-form"
+                                    onsubmit="return confirm('确定要删除这个备份文件吗？')">
+                                    <button type="submit" class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <div class="empty-state">
+                    <i class="fas fa-archive"></i>
+                    <p>暂无备份记录，点击上方按钮创建第一个备份吧</p>
+                </div>
+                {{end}}
+            </div>
+
+            <div
+                style="margin-top: 40px; background: #fff; padding: 25px; border-radius: 16px; border: 1px dashed #cbd5e1; color: #475569; font-size: 14px; line-height: 1.6;">
+                <h4 style="margin-top: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-shield-alt" style="color: #059669;"></i> 安全提示
+                </h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>备份包包含数据库文件 (blog.sqlite) 及所有用户上传内容 (usr/ 目录)。</li>
+                    <li>生成的备份文件仅存放在服务器本地的 <code>backups/</code> 目录下，不对外提供下载。</li>
+                    <li><strong>建议：</strong> 定期通过 SSH 等安全方式将服务器端的备份文件转移至安全的地方。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

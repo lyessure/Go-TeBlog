@@ -1,0 +1,50 @@
+# Binaries - Compiled outputs
+blog_app
+admin_app
+migrator
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# Database - Local data should not be committed
+blog.sqlite
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+
+# User Data & Backups
+usr/uploads/
+backups/
+
+# Logs
+*.log
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Site-specific verification/config (Commonly personalized)
+static/BingSiteAuth.xml
+static/google*.html
+static/clash.yml
+static/sy.html
+static/robots.txt
+AGENTS.md

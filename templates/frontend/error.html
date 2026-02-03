@@ -1,0 +1,113 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>错误提示 - {{.Site.Title}}</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/normalize.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/grid.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/style.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/go-custom.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        .error-container {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .error-icon {
+            font-size: 48px;
+            color: #ef4444;
+            margin-bottom: 20px;
+        }
+
+        .error-title {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .error-message {
+            font-size: 16px;
+            color: #6b7280;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+
+        .back-button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header id="header" class="clearfix">
+        <div class="container">
+            <div class="site-header">
+                <div class="site-name">
+                    <!-- 留空 -->
+                </div>
+                <div class="site-search">
+                    <form id="search" method="post" action="/blog/" role="search">
+                        <label for="s" class="sr-only">搜索关键字</label>
+                        <input type="text" id="s" name="s" class="text" placeholder="输入关键字搜索" />
+                        <button type="submit" class="submit">搜索</button>
+                    </form>
+                </div>
+                <button class="mobile-menu-toggle">
+                    <span class="hamburger"></span>
+                </button>
+            </div>
+            <nav id="nav-menu" class="clearfix" role="navigation">
+                <a href="/blog">博客首页</a>
+            </nav>
+        </div>
+    </header>
+
+    <div id="body">
+        <div class="container">
+            <div class="row">
+                <div class="col-mb-12 col-12" id="main" role="main">
+                    <div class="error-container">
+                        <div class="error-icon">
+                            {{if or (contains .ErrorTitle "成功") (contains .ErrorTitle "提交")}}
+                            <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                            {{else}}
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{end}}
+                        </div>
+                        <h2 class="error-title">{{.ErrorTitle}}</h2>
+                        <p class="error-message">{{.ErrorMessage}}</p>
+                        <a href="javascript:history.back()" class="back-button">
+                            <i class="fas fa-arrow-left"></i> 返回上一页
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer id="footer" role="contentinfo">
+        <div class="footer-branding">
+            <div>&copy; {{now.Format "2006"}} <a href="https://github.com/lyessure/Go-TeBlog" target="_blank"
+                    class="go-badge" style="text-decoration: none;">⚡ Go-TeBlog</a></div>
+            <div style="font-size: 11px; margin-top: 6px; opacity: 0.7;">Idea from Typecho</div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

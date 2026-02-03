@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>系统设置 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin: 10px 0 30px 10px;
+            font-size: 1.25em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar h3 i {
+            color: #0984e3;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            margin-left: 240px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding-top: 100px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-menu:hover {
+            background: #fff;
+            border-color: #cbd5e1;
+        }
+
+        .user-menu .dropdown {
+            position: absolute;
+            top: 100%;
+            margin-top: 5px;
+            right: 0;
+            background: #fff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            padding: 8px 0;
+            z-index: 100;
+        }
+
+        /* Bridge to keep dropdown open when mouse is between trigger and dropdown */
+        .user-menu .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .user-menu:hover .dropdown {
+            display: flex;
+        }
+
+        .dropdown a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #475569;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown a:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .settings-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .settings-section {
+            background: #fff;
+            margin-bottom: 30px;
+            border-radius: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .section-header {
+            padding: 20px 30px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-header i {
+            color: #38bdf8;
+            font-size: 1.2em;
+        }
+
+        .section-header h3 {
+            margin: 0;
+            font-size: 1.1em;
+            color: #0f172a;
+        }
+
+        .section-body {
+            padding: 30px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        label {
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #334155;
+            font-size: 14px;
+        }
+
+        .label-desc {
+            font-weight: normal;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            background: #fff;
+            color: #1e293b;
+            transition: all 0.2s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+
+        .btn-container {
+            position: sticky;
+            bottom: 20px;
+            background: rgba(241, 245, 249, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            margin-top: 40px;
+            z-index: 4;
+        }
+
+        .btn-submit {
+            background: #0984e3;
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(9, 132, 227, 0.3);
+        }
+
+        .btn-submit:hover {
+            background: #0873c4;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(9, 132, 227, 0.4);
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbfcce;
+        }
+
+        /* Switch toggle styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #0984e3;
+        }
+
+        input:focus+.slider {
+            box-shadow: 0 0 1px #0984e3;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
+                class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts"><i class="fas fa-file-alt"></i> 文章管理</a>
+        <a href="{{adminPath}}/categories"><i class="fas fa-list"></i> 分类管理</a>
+        <a href="{{adminPath}}/comments"><i class="fas fa-comments"></i> 评论管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
+            用户管理</a>
+        <a href="{{adminPath}}/settings" class="active"><i class="fas fa-cog"></i> 系统设置</a>
+
+        <a href="{{adminPath}}/backups" {{if eq .Tab "backups" }}class="active" {{end}}><i class="fas fa-database"></i>
+            数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="settings-container">
+            <h1 style="margin-bottom: 30px; font-size: 1.8em;">系统设置</h1>
+
+            {{if .SuccessMessage}}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                {{.SuccessMessage}}
+            </div>
+            {{end}}
+
+            <form action="{{adminPath}}/settings" method="POST">
+                <!-- 基础设置 -->
+                <div class="settings-section">
+                    <div class="section-header">
+                        <i class="fas fa-info-circle"></i>
+                        <h3>基础信息</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>站点标题</label>
+                                <input type="text" name="title" value="{{.SiteTitle}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>站点地址 (Site URL)</label>
+                                <span class="label-desc">用于生成文章及 RSS 绝对链接。</span>
+                                <input type="text" name="siteUrl" value="{{.SiteUrl}}"
+                                    placeholder="http://localhost:8190" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label>站点描述</label>
+                                <input type="text" name="description" value="{{.SiteDescription}}" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label>站点关键词</label>
+                                <span class="label-desc">用英文逗号分隔，利于搜索引擎收录。</span>
+                                <input type="text" name="keywords" value="{{.SiteKeywords}}" placeholder="Go, 博客, 技术">
+                            </div>
+                            <div class="form-group">
+                                <label>后台路径 (Admin Path)</label>
+                                <span class="label-desc">修改后需重启服务。当前: <code id="pathPreview"
+                                        style="color: #0984e3; background: #e1f0ff; padding: 2px 6px; border-radius: 4px; font-weight: normal;">加载中...</code></span>
+                                <input type="text" name="adminPath" id="adminPathInput" value="{{.ConfigAdminPath}}"
+                                    required placeholder="admin">
+                            </div>
+                            <div class="form-group">
+                                <label>登录超时 (分钟)</label>
+                                <input type="number" name="sessionTimeout" value="{{.SessionTimeout}}" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 展示与阅读 -->
+                <div class="settings-section">
+                    <div class="section-header">
+                        <i class="fas fa-desktop"></i>
+                        <h3>展示与阅读</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>默认分类</label>
+                                <span class="label-desc">新文章默认归属。</span>
+                                <select name="defaultCategory">
+                                    {{$def := .DefaultCategory}}
+                                    {{range .AllCategories}}
+                                    <option value="{{.Mid}}" {{if eq (printf "%d" .Mid) $def}}selected{{end}}>{{.Name}}
+                                    </option>
+                                    {{end}}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>每页文章数</label>
+                                <span class="label-desc">首页列表。</span>
+                                <input type="number" name="pageSize" value="{{.PageSize}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>侧边栏文章数</label>
+                                <input type="number" name="recentPostsSize" value="{{.RecentPostsSize}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>侧边栏评论数</label>
+                                <input type="number" name="recentCommentsSize" value="{{.RecentCommentsSize}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>统计日志保留天数</label>
+                                <span class="label-desc">过期自动清理。0 为不清理。</span>
+                                <input type="number" name="logRetentionDays" value="{{.LogRetentionDays}}" required
+                                    min="0" max="365">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+                <!-- 评论过滤与限制 -->
+                <div class="settings-section">
+                    <div class="section-header">
+                        <i class="fas fa-shield-alt"></i>
+                        <h3>评论过滤与频率限制</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-grid">
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                <label>允许新评论</label>
+                                <span class="label-desc">关闭后，全站将不再接收新评论。</span>
+                                <label class="switch">
+                                    <input type="checkbox" name="commentsEnabled" value="1" {{if eq .CommentsEnabled "1"}}checked{{end}}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                <label>评论需审核</label>
+                                <span class="label-desc">开启后访客评论需批准。</span>
+                                <label class="switch">
+                                    <input type="checkbox" name="commentAudit" value="1" {{if eq .CommentAudit "1"}}checked{{end}}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>IP 频率限制 (次/分钟)</label>
+                                <input type="number" name="commentLimitIP" value="{{.CommentLimitIP}}" required min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>全局频率限制 (次/分钟)</label>
+                                <input type="number" name="commentLimitGlobal" value="{{.CommentLimitGlobal}}" required
+                                    min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>AI 判定阈值 (0-9)</label>
+                                <span class="label-desc">分越高越宽松。</span>
+                                <input type="number" name="aiThreshold" value="{{.AiThreshold}}" min="0" max="9"
+                                    required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI 与系统底层 -->
+                <div class="settings-section">
+                    <div class="section-header">
+                        <i class="fas fa-robot"></i>
+                        <h3>AI 系统与底层配置</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label>AI API URL</label>
+                                <input type="text" name="aiApiUrl" value="{{.AiApiUrl}}"
+                                    placeholder="https://api.groq.com/...">
+                            </div>
+                            <div class="form-group">
+                                <label>AI Model</label>
+                                <input type="text" name="aiModel" value="{{.AiModel}}">
+                            </div>
+                            <div class="form-group">
+                                <label>AI API Key</label>
+                                <input type="text" name="grokApiKey" value="{{.GrokApiKey}}" placeholder="sk-...">
+                            </div>
+                            <div class="form-group full-width"
+                                style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e2e8f0;">
+                                <label>统计日志缓冲区</label>
+                                <span class="label-desc">异步统计队列大小。默认: 100。</span>
+                                <input type="number" name="statsBufferSize" value="{{.StatsBufferSize}}" required
+                                    min="10" max="10000">
+                            </div>
+                            <div class="form-group full-width">
+                                <label>页脚自定义代码</label>
+                                <textarea name="footerCode" rows="4"
+                                    style="font-family: 'Fira Code', monospace; font-size: 13px;">{{.FooterCode}}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-save" style="margin-right: 8px; font-size: 0.9em; opacity: 0.9;"></i> 保存所有设置
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const input = document.getElementById('adminPathInput');
+            const preview = document.getElementById('pathPreview');
+            const baseUrl = window.location.origin;
+
+            function updatePreview() {
+                let val = input.value.trim();
+                if (!val.startsWith('/')) val = '/' + val;
+                preview.textContent = baseUrl + (val === '/' ? '' : val);
+            }
+
+            if (input && preview) {
+                input.addEventListener('input', updatePreview);
+                updatePreview();
+            }
+        })();
+    </script>
+</body>
+
+</html>

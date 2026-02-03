@@ -1,0 +1,188 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="renderer" content="webkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    {{if .Site.Description}}
+    <meta name="description" content="{{.Site.Description}}">{{end}}
+    <title>{{if .SearchQuery}}包含关键字 {{.SearchQuery}} 的文章 - {{end}}{{.Site.Title}}</title>
+    {{if .Site.Keywords}}
+    <meta name="keywords" content="{{.Site.Keywords}}">{{end}}
+    <link rel="stylesheet" href="/blog/usr/themes/default/normalize.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/grid.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/style.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/go-custom.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        /* Custom styles to match the original if needed */
+    </style>
+</head>
+
+<body>
+
+    <header id="header" class="clearfix">
+        <div class="container">
+            <div class="site-header">
+                <div class="site-name">
+                    <!-- 留空 -->
+                </div>
+                <div class="site-search">
+                    <form id="search" method="post" action="/blog/" role="search">
+                        <label for="s" class="sr-only">搜索关键字</label>
+                        <input type="text" id="s" name="s" class="text" placeholder="输入关键字搜索" {{if
+                            .SearchQuery}}value="{{.SearchQuery}}" {{end}} />
+                        <button type="submit" class="submit">搜索</button>
+                    </form>
+                </div>
+                <button class="mobile-menu-toggle">
+                    <span class="hamburger"></span>
+                </button>
+            </div>
+            <nav id="nav-menu" class="clearfix" role="navigation">
+                <a{{if eq .CurrentSlug "" }} class="current" {{end}} href="/blog">博客首页</a>
+                    {{range .Categories}}
+                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink $.Site.SiteUrl .}}"
+                        title="{{.Name}}">{{.Name}}</a>
+                        {{end}}
+            </nav>
+        </div>
+    </header>
+
+    <div id="body">
+        <div class="container">
+            <div class="row">
+
+                <div class="col-mb-12 col-8" id="main" role="main">
+                    {{if .ArchiveTitle}}
+                    <h3 class="archive-title">{{.ArchiveTitle}}</h3>
+                    {{end}}
+
+                    {{range .Posts}}
+                    <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
+                        <h2 class="post-title" itemprop="name headline">
+                            <a itemprop="url" href="{{permalink $.Site.SiteUrl .}}">{{.Title}}</a>
+                        </h2>
+                        <ul class="post-meta">
+                            <li><i class="fas fa-user"></i> <span class="author-name">{{if
+                                    .Author}}{{.Author}}{{else}}admin{{end}}</span></li>
+                            <li><i class="fas fa-calendar"></i> <time datetime="{{formatDateTime .Created}}"
+                                    itemprop="datePublished">{{formatDate
+                                    .Created}}</time></li>
+                            <li><i class="fas fa-folder"></i>
+                                {{range $i, $cat := .Categories}}
+                                {{if $i}}, {{end}}<a href="{{catPermalink $.Site.SiteUrl $cat}}">{{$cat.Name}}</a>
+                                {{end}}
+                            </li>
+                            <li itemprop="interactionCount">
+                                <a itemprop="discussionUrl" href="{{permalink $.Site.SiteUrl .}}#comments">
+                                    <i class="far fa-comment-dots"></i> {{if gt .CommentsNum 0}}{{.CommentsNum}}
+                                    条评论{{else}}评论{{end}}
+                                </a>
+                            </li>
+                        </ul>
+                        <div class="post-content" itemprop="articleBody">
+                            {{fullContent $.Site.SiteUrl .}}
+                        </div>
+                    </article>
+                    {{else}}
+                    <article class="post">
+                        <h2 class="post-title">没有找到内容</h2>
+                    </article>
+                    {{end}}
+
+                    {{if gt .TotalPages 1}}
+                    <ol class="page-navigator">
+                        <!-- 上一页 -->
+                        {{if .HasPrev}}
+                        <li><a href="{{targetPage .PaginationBase .PrevPage .SearchQuery}}">&lt;</a></li>
+                        {{else}}
+                        <li class="disabled"><span>&lt;</span></li>
+                        {{end}}
+
+                        {{$currentPage := .CurrentPage}}
+                        {{$paginationBase := .PaginationBase}}
+                        {{$searchQuery := .SearchQuery}}
+
+                        {{range $p := (paginationRange .CurrentPage .TotalPages)}}
+                        {{if isStr $p}}
+                        <li class="ellipsis"><span>···</span></li>
+                        {{else}}
+                        <li{{if eq $p $currentPage}} class="current" {{end}}>
+                            <a href="{{targetPage $paginationBase $p $searchQuery}}">{{$p}}</a>
+                            </li>
+                            {{end}}
+                            {{end}}
+
+                            <!-- 下一页 -->
+                            {{if .HasNext}}
+                            <li><a href="{{targetPage .PaginationBase .NextPage .SearchQuery}}">&gt;</a></li>
+                            {{else}}
+                            <li class="disabled"><span>&gt;</span></li>
+                            {{end}}
+
+                            <!-- 前往输入框 -->
+                            <li class="goto-box">
+                                <span>前往</span>
+                                <input type="number" id="gotoPage" min="1" max="{{.TotalPages}}"
+                                    value="{{.CurrentPage}}" onkeydown="if(event.key==='Enter')gotoPage()">
+                                <span>页</span>
+                            </li>
+                    </ol>
+                    <script>
+                        function gotoPage() {
+                            var page = parseInt(document.getElementById('gotoPage').value);
+                            var total = {{.TotalPages}};
+                        if (page >= 1 && page <= total) {
+                            {{if .SearchQuery}}
+                            window.location.href = '/blog/index.php/search/{{.SearchQuery}}/' + (page > 1 ? page + '/' : '');
+                            {{else}}
+                            window.location.href = '{{.PaginationBase}}' + (page > 1 ? 'page/' + page + '/' : '');
+                            {{end}}
+                        }
+                    }
+                    </script>
+                    {{end}}
+                </div><!-- end #main-->
+
+                <div class="col-mb-12 col-4 kit-hidden-tb" id="secondary" role="complementary">
+                    <section class="widget">
+                        <h3 class="widget-title">最新文章</h3>
+                        <ul class="widget-list">
+                            {{range .RecentPosts}}
+                            <li><a href="{{permalink $.Site.SiteUrl .}}">{{.Title}}</a></li>
+                            {{end}}
+                        </ul>
+                    </section>
+
+                    <section class="widget">
+                        <h3 class="widget-title">最近评论</h3>
+                        <ul class="widget-list">
+                            {{range .RecentComments}}
+                            <li class="comment-item">
+                                <a href="{{commPermalink $.Site.SiteUrl .}}">{{.Author}}</a>: {{.Text}}
+                            </li>
+                            {{end}}
+                        </ul>
+                    </section>
+
+                </div><!-- end #sidebar -->
+
+            </div><!-- end .row -->
+        </div>
+    </div><!-- end #body -->
+
+    <footer id="footer" role="contentinfo">
+        <div class="footer-branding">
+            <div>&copy; {{now.Format "2006"}} <a href="https://github.com/lyessure/Go-TeBlog" target="_blank"
+                    class="go-badge" style="text-decoration: none;">⚡ Go-TeBlog</a></div>
+            <div style="font-size: 11px; margin-top: 6px; opacity: 0.7;">Idea from Typecho</div>
+        </div>
+    </footer>
+
+    <script src="/blog/usr/themes/default/js/mobile-nav.js"></script>
+    {{.Site.FooterCode}}
+</body>
+
+</html>
