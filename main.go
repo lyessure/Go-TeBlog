@@ -256,8 +256,23 @@ func beaconMiddleware(adminPath string) gin.HandlerFunc {
 		if strings.Contains(contentType, "text/html") && w.Status() == http.StatusOK {
 			script := `<script>(function(){var _0x=['/a','pi','/sta','ts/b','eaco','n'];var _0y=_0x.join('');var b=new Image();b.src=_0y+'?path='+encodeURIComponent(window.location.pathname)+'&t='+(new Date()).getTime();})();</script>`
 			content := w.body.String()
-			// 在 </body> 之前注入，如果没找到则加在最后
-			if idx := strings.LastIndex(content, "</body>"); idx != -1 {
+			lowerContent := strings.ToLower(content)
+			// 优先在 <head> 内注入；没有 <head> 就紧接 <html> 之后；两者都没有则插入 </body> 前
+			if idx := strings.Index(lowerContent, "<head"); idx != -1 {
+				if endIdx := strings.Index(content[idx:], ">"); endIdx != -1 {
+					insertPos := idx + endIdx + 1
+					content = content[:insertPos] + script + content[insertPos:]
+				} else {
+					content += script
+				}
+			} else if idx := strings.Index(lowerContent, "<html"); idx != -1 {
+				if endIdx := strings.Index(content[idx:], ">"); endIdx != -1 {
+					insertPos := idx + endIdx + 1
+					content = content[:insertPos] + script + content[insertPos:]
+				} else {
+					content += script
+				}
+			} else if idx := strings.LastIndex(lowerContent, "</body>"); idx != -1 {
 				content = content[:idx] + script + content[idx:]
 			} else {
 				content += script
