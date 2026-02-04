@@ -13,6 +13,10 @@ CUR_DIR=$(cd $(dirname $0); pwd)
 echo "工作目录: $CUR_DIR"
 cd "$CUR_DIR"
 
+# 编译前执行依赖整理
+echo "执行 go mod tidy..."
+go mod tidy
+
 # 检查是否为新安装并获取初始配置
 IS_NEW_INSTALL=0
 if [ ! -f "$CUR_DIR/blog.sqlite" ]; then
