@@ -493,7 +493,7 @@ func main() {
 			_, ok := val.(string)
 			return ok
 		},
-		"fullContent": func(siteUrl string, p Post) template.HTML {
+		"fullContent": func(p Post) template.HTML {
 			content := strings.TrimPrefix(p.Text, "<!--markdown-->")
 			parts := strings.Split(content, "<!--more-->")
 			excerpt := parts[0]
@@ -507,7 +507,7 @@ func main() {
 
 			// If <!--more--> was found, append the "Read more" link
 			if len(parts) > 1 {
-				moreLink := fmt.Sprintf("<p class=\"more\"><a href=\"/blog/archives/%d/\" title=\"%s\">- 阅读剩余部分 -</a></p>", p.Cid, p.Title)
+				moreLink := fmt.Sprintf("<p class=\"more\"><a href=\"/blog/index.php/archives/%d/\" title=\"%s\">- 阅读剩余部分 -</a></p>", p.Cid, p.Title)
 				htmlContent += moreLink
 			}
 
@@ -521,15 +521,15 @@ func main() {
 			}
 			return template.HTML(buf.String())
 		},
-		"permalink": func(siteUrl string, p Post) string {
+		"permalink": func(p Post) string {
 			// Typecho default permalink: index.php/archives/{cid}/
-			return fmt.Sprintf("%s/blog/index.php/archives/%d/", strings.TrimSuffix(siteUrl, "/"), p.Cid)
+			return fmt.Sprintf("/blog/index.php/archives/%d/", p.Cid)
 		},
-		"catPermalink": func(siteUrl string, c Category) string {
-			return fmt.Sprintf("%s/blog/index.php/category/%s/", strings.TrimSuffix(siteUrl, "/"), c.Slug)
+		"catPermalink": func(c Category) string {
+			return fmt.Sprintf("/blog/index.php/category/%s/", c.Slug)
 		},
-		"commPermalink": func(siteUrl string, c Comment) string {
-			return fmt.Sprintf("%s/blog/index.php/archives/%d/#comment-%d", strings.TrimSuffix(siteUrl, "/"), c.Cid, c.Coid)
+		"commPermalink": func(c Comment) string {
+			return fmt.Sprintf("/blog/index.php/archives/%d/#comment-%d", c.Cid, c.Coid)
 		},
 		"contains":  strings.Contains,
 		"adminPath": func() string { return adminPath },

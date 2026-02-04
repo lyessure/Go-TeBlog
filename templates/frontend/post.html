@@ -38,8 +38,8 @@
             <nav id="nav-menu" class="clearfix" role="navigation">
                 <a{{if eq .CurrentSlug "" }} class="current" {{end}} href="/blog">博客首页</a>
                     {{range .Categories}}
-                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink $.Site.SiteUrl .}}"
-                        title="{{.Name}}">{{.Name}}</a>
+                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink .}}" title="{{.Name}}">
+                        {{.Name}}</a>
                         {{end}}
             </nav>
         </div>
@@ -52,7 +52,7 @@
                 <div class="col-mb-12 col-8" id="main" role="main">
                     <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
                         <h1 class="post-title" itemprop="name headline">
-                            <a itemprop="url" href="{{permalink $.Site.SiteUrl .Post}}">{{.Post.Title}}</a>
+                            <a itemprop="url" href="{{permalink .Post}}">{{.Post.Title}}</a>
                         </h1>
                         <ul class="post-meta">
                             <li><i class="fas fa-user"></i> <span class="author-name">{{if
@@ -62,7 +62,7 @@
                                     .Post.Created}}</time></li>
                             <li><i class="fas fa-folder"></i>
                                 {{range $i, $cat := .Post.Categories}}
-                                {{if $i}}, {{end}}<a href="{{catPermalink $.Site.SiteUrl $cat}}">{{$cat.Name}}</a>
+                                {{if $i}}, {{end}}<a href="{{catPermalink $cat}}">{{$cat.Name}}</a>
                                 {{end}}
                             </li>
                         </ul>
@@ -132,10 +132,10 @@
 
                     <ul class="post-near">
                         <li>上一篇: {{if .PrevPost}}<a
-                                href="{{permalink $.Site.SiteUrl .PrevPost}}">{{.PrevPost.Title}}</a>{{else}}没有了{{end}}
+                                href="{{permalink .PrevPost}}">{{.PrevPost.Title}}</a>{{else}}没有了{{end}}
                         </li>
                         <li>下一篇: {{if .NextPost}}<a
-                                href="{{permalink $.Site.SiteUrl .NextPost}}">{{.NextPost.Title}}</a>{{else}}没有了{{end}}
+                                href="{{permalink .NextPost}}">{{.NextPost.Title}}</a>{{else}}没有了{{end}}
                         </li>
                     </ul>
                 </div><!-- end #main-->
@@ -145,7 +145,7 @@
                         <h3 class="widget-title">最新文章</h3>
                         <ul class="widget-list">
                             {{range .RecentPosts}}
-                            <li><a href="{{permalink $.Site.SiteUrl .}}">{{.Title}}</a></li>
+                            <li><a href="{{permalink .}}">{{.Title}}</a></li>
                             {{end}}
                         </ul>
                     </section>
@@ -155,7 +155,7 @@
                         <ul class="widget-list">
                             {{range .RecentComments}}
                             <li class="comment-item">
-                                <a href="{{commPermalink $.Site.SiteUrl .}}">{{.Author}}</a>: {{.Text}}
+                                <a href="{{commPermalink .}}">{{.Author}}</a>: {{.Text}}
                             </li>
                             {{end}}
                         </ul>

@@ -43,7 +43,7 @@
             <nav id="nav-menu" class="clearfix" role="navigation">
                 <a{{if eq .CurrentSlug "" }} class="current" {{end}} href="/blog">博客首页</a>
                     {{range .Categories}}
-                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink $.Site.SiteUrl .}}"
+                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink .}}"
                         title="{{.Name}}">{{.Name}}</a>
                         {{end}}
             </nav>
@@ -62,7 +62,7 @@
                     {{range .Posts}}
                     <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
                         <h2 class="post-title" itemprop="name headline">
-                            <a itemprop="url" href="{{permalink $.Site.SiteUrl .}}">{{.Title}}</a>
+                            <a itemprop="url" href="{{permalink .}}">{{.Title}}</a>
                         </h2>
                         <ul class="post-meta">
                             <li><i class="fas fa-user"></i> <span class="author-name">{{if
@@ -72,18 +72,18 @@
                                     .Created}}</time></li>
                             <li><i class="fas fa-folder"></i>
                                 {{range $i, $cat := .Categories}}
-                                {{if $i}}, {{end}}<a href="{{catPermalink $.Site.SiteUrl $cat}}">{{$cat.Name}}</a>
+                                {{if $i}}, {{end}}<a href="{{catPermalink $cat}}">{{$cat.Name}}</a>
                                 {{end}}
                             </li>
                             <li itemprop="interactionCount">
-                                <a itemprop="discussionUrl" href="{{permalink $.Site.SiteUrl .}}#comments">
+                                <a itemprop="discussionUrl" href="{{permalink .}}#comments">
                                     <i class="far fa-comment-dots"></i> {{if gt .CommentsNum 0}}{{.CommentsNum}}
                                     条评论{{else}}评论{{end}}
                                 </a>
                             </li>
                         </ul>
                         <div class="post-content" itemprop="articleBody">
-                            {{fullContent $.Site.SiteUrl .}}
+                            {{fullContent .}}
                         </div>
                     </article>
                     {{else}}
@@ -151,7 +151,7 @@
                         <h3 class="widget-title">最新文章</h3>
                         <ul class="widget-list">
                             {{range .RecentPosts}}
-                            <li><a href="{{permalink $.Site.SiteUrl .}}">{{.Title}}</a></li>
+                            <li><a href="{{permalink .}}">{{.Title}}</a></li>
                             {{end}}
                         </ul>
                     </section>
@@ -161,7 +161,7 @@
                         <ul class="widget-list">
                             {{range .RecentComments}}
                             <li class="comment-item">
-                                <a href="{{commPermalink $.Site.SiteUrl .}}">{{.Author}}</a>: {{.Text}}
+                                <a href="{{commPermalink .}}">{{.Author}}</a>: {{.Text}}
                             </li>
                             {{end}}
                         </ul>
