@@ -13,6 +13,14 @@ CUR_DIR=$(cd $(dirname $0); pwd)
 echo "工作目录: $CUR_DIR"
 cd "$CUR_DIR"
 
+# 从源码树中隔离附件目录，防止 go mod tidy 扫描其中的 .go 文件
+mkdir -p "$CUR_DIR/usr/uploads"
+if [ ! -f "$CUR_DIR/usr/uploads/go.mod" ]; then
+    echo "正在隔离附件目录..."
+    echo "module attachments" > "$CUR_DIR/usr/uploads/go.mod"
+    echo "go 1.20" >> "$CUR_DIR/usr/uploads/go.mod"
+fi
+
 # 编译前执行依赖整理
 echo "执行 go mod tidy..."
 go mod tidy
