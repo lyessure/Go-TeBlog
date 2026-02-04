@@ -306,9 +306,7 @@
                 {{if .ErrorMessage}}
                 <div class="error-msg">{{.ErrorMessage}}</div>
                 {{end}}
-                <form
-                    action="{{if .User.Uid}}{{adminPath}}/user/edit/{{.User.Uid}}{{else}}{{adminPath}}/user/add{{end}}"
-                    method="POST">
+                <form action="{{if .User.Uid}}{{adminPath}}/user/edit/{{.User.Uid}}{{else}}{{adminPath}}/user/add{{end}}" method="POST">
                     <div class="form-group">
                         <label>用户名 (登录名)</label>
                         <input type="text" name="name" value="{{.User.Name}}" required {{if .User.Uid}}readonly{{end}}>
@@ -324,9 +322,7 @@
                     </div>
                     <div class="form-group">
                         <label>登录密码</label>
-                        <input type="password" name="password"
-                            placeholder="{{if .User.Uid}}留空则不修改{{else}}请输入登录密码{{end}}" {{if not
-                            .User.Uid}}required{{end}}>
+                        <input type="password" name="password" placeholder="{{if .User.Uid}}留空则不修改{{else}}请输入登录密码{{end}}" {{if not .User.Uid}}required{{end}}>
                         {{if .User.Uid}}<p class="desc">如果不需要修改密码，请保持此项为空</p>{{end}}
                     </div>
                     <div class="form-group">
@@ -336,8 +332,7 @@
                     <div class="form-group">
                         <label>用户组</label>
                         <select name="group">
-                            <option value="administrator" {{if eq .User.Group "administrator" }}selected{{end}}>管理员
-                            </option>
+                            <option value="administrator" {{if eq .User.Group "administrator" }}selected{{end}}>管理员</option>
                             <option value="editor" {{if eq .User.Group "editor" }}selected{{end}}>编辑</option>
                             <option value="visitor" {{if eq .User.Group "visitor" }}selected{{end}}>访客</option>
                         </select>

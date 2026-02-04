@@ -631,10 +631,19 @@ func main() {
 		pageSize := 20
 		offset := (page - 1) * pageSize
 
+		group, _ := c.Get("userGroup")
 		var total int
-		db.QueryRow("SELECT COUNT(*) FROM typecho_contents WHERE type='post'").Scan(&total)
+		var rows *sql.Rows
+		var err error
 
-		rows, err := db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' ORDER BY created DESC LIMIT ? OFFSET ?", pageSize, offset)
+		if group == "visitor" {
+			db.QueryRow("SELECT COUNT(*) FROM typecho_contents WHERE type='post' AND status='publish'").Scan(&total)
+			rows, err = db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' AND status='publish' ORDER BY created DESC LIMIT ? OFFSET ?", pageSize, offset)
+		} else {
+			db.QueryRow("SELECT COUNT(*) FROM typecho_contents WHERE type='post'").Scan(&total)
+			rows, err = db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' ORDER BY created DESC LIMIT ? OFFSET ?", pageSize, offset)
+		}
+
 		if err != nil {
 			c.String(500, err.Error())
 			return
@@ -659,6 +668,7 @@ func main() {
 		username, _ := c.Get("username")
 		c.HTML(http.StatusOK, "admin_posts.html", gin.H{
 			"Username":    username,
+			"UserGroup":   group,
 			"Posts":       posts,
 			"Tab":         "posts",
 			"CurrentPage": page,
@@ -914,7 +924,16 @@ func main() {
 	// User Management
 	admin.GET("/users", func(c *gin.Context) {
 		username, _ := c.Get("username")
-		rows, err := db.Query("SELECT uid, name, screenName, mail, url, \"group\", logged FROM typecho_users ORDER BY uid ASC")
+		group, _ := c.Get("userGroup")
+
+		var rows *sql.Rows
+		var err error
+		if group == "visitor" {
+			rows, err = db.Query("SELECT uid, name, screenName, mail, url, \"group\", logged FROM typecho_users WHERE name=? ORDER BY uid ASC", username)
+		} else {
+			rows, err = db.Query("SELECT uid, name, screenName, mail, url, \"group\", logged FROM typecho_users ORDER BY uid ASC")
+		}
+
 		if err != nil {
 			c.String(500, err.Error())
 			return
@@ -946,6 +965,7 @@ func main() {
 
 		c.HTML(http.StatusOK, "admin_users.html", gin.H{
 			"Username":  username,
+			"UserGroup": group,
 			"Tab":       "users",
 			"AdminPath": adminPath,
 			"Users":     users,
@@ -954,8 +974,10 @@ func main() {
 
 	admin.GET("/user/add", func(c *gin.Context) {
 		username, _ := c.Get("username")
+		group, _ := c.Get("userGroup")
 		c.HTML(http.StatusOK, "admin_user_edit.html", gin.H{
 			"Username":  username,
+			"UserGroup": group,
 			"Tab":       "users",
 			"AdminPath": adminPath,
 			"User":      map[string]interface{}{},
@@ -1038,8 +1060,19 @@ func main() {
 		u["Url"] = url
 		u["Group"] = group
 
+		groupCurrent, _ := c.Get("userGroup")
+		if groupCurrent == "visitor" && name != username {
+			c.HTML(http.StatusForbidden, "admin_error.html", gin.H{
+				"AdminPath":    adminPath,
+				"ErrorTitle":   "横向越权拦截",
+				"ErrorMessage": "访客模式下只能编辑自己的资料。",
+			})
+			return
+		}
+
 		c.HTML(http.StatusOK, "admin_user_edit.html", gin.H{
 			"Username":  username,
+			"UserGroup": groupCurrent,
 			"Tab":       "users",
 			"AdminPath": adminPath,
 			"User":      u,
@@ -1287,11 +1320,14 @@ func main() {
 				}
 			}
 
-			err := db.QueryRow("SELECT cid, title, text, slug FROM typecho_contents WHERE cid=?", cid).Scan(&post.Cid, &post.Title, &post.Text, &post.Slug)
+			var status string
+			err := db.QueryRow("SELECT cid, title, text, slug, status FROM typecho_contents WHERE cid=?", cid).Scan(&post.Cid, &post.Title, &post.Text, &post.Slug, &status)
 			if err != nil {
 				c.String(404, "未找到文章")
 				return
 			}
+			group, _ := c.Get("userGroup")
+
 			post.Text = strings.TrimPrefix(post.Text, "<!--markdown-->")
 
 			// Fetch post's categories
@@ -1326,6 +1362,7 @@ func main() {
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "admin_edit.html", gin.H{
 				"Username":    username,
+				"UserGroup":   group,
 				"Post":        post,
 				"IsNew":       false,
 				"Attachments": attachments,
@@ -1352,8 +1389,18 @@ func main() {
 				}
 			}
 			username, _ := c.Get("username")
+			group, _ := c.Get("userGroup")
+			if group == "visitor" {
+				c.HTML(http.StatusForbidden, "admin_error.html", gin.H{
+					"AdminPath":    adminPath,
+					"ErrorTitle":   "功能受限",
+					"ErrorMessage": "访客模式下无法创建新文章。",
+				})
+				return
+			}
 			c.HTML(http.StatusOK, "admin_edit.html", gin.H{
 				"Username":    username,
+				"UserGroup":   group,
 				"Post":        post,
 				"IsNew":       true,
 				"Attachments": nil,
