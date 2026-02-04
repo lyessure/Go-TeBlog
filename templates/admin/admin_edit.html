@@ -239,6 +239,7 @@
             padding: 10px 0;
             border-bottom: 1px solid #f9f9f9;
             font-size: 13px;
+            transition: all 0.3s ease;
         }
 
         .attachment-item span {
@@ -411,10 +412,8 @@
                     {{range .Attachments}}
                     <li class="attachment-item">
                         <span onclick="insertAtCursor('![]({{.Path}})')" title="点击插入">{{.Title}}</span>
-                        <form action="{{adminPath}}/attachment/delete/{{.Cid}}?parent={{$.Post.Cid}}" method="POST"
-                            style="display:inline">
-                            <button type="submit" class="btn-del-att">删除</button>
-                        </form>
+                        <button type="button" class="btn-del-att"
+                            onclick="deleteAttachment('{{.Cid}}', '{{.Path}}', this)">删除</button>
                     </li>
                     {{else}}
                     <li style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>
@@ -453,7 +452,7 @@
                     const file = items[i].getAsFile();
                     if (!file) continue;
 
-                    // Use canvas to convert to JPEG
+                    // Use canvas to convert to WebP
                     const reader = new FileReader();
                     reader.onload = function (event) {
                         const img = new Image();
@@ -463,15 +462,13 @@
                             canvas.height = img.height;
                             const ctx = canvas.getContext('2d');
 
-                            // Fill background with white (for transparent PNGs)
-                            ctx.fillStyle = '#fff';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            // WebP supports transparency, so no need for white background
                             ctx.drawImage(img, 0, 0);
 
                             canvas.toBlob(function (blob) {
-                                const newFile = new File([blob], "pasted-image.jpg", { type: "image/jpeg" });
+                                const newFile = new File([blob], "pasted-image.webp", { type: "image/webp" });
                                 uploadFile(newFile);
-                            }, 'image/jpeg', 0.85); // 0.85 quality
+                            }, 'image/webp', 0.85); // 0.85 quality
                         };
                         img.src = event.target.result;
                     };
@@ -527,6 +524,40 @@
             editor.value = editor.value.substring(0, startPos) + text + editor.value.substring(endPos, editor.value.length);
             editor.selectionStart = editor.selectionEnd = startPos + text.length;
             editor.focus();
+        }
+
+        function deleteAttachment(cid, path, btn) {
+            if (!confirm('确定要删除这个附件吗？此操作将同时从文章正文中移除该图片的引用。')) return;
+
+            const url = `{{adminPath}}/attachment/delete/${cid}?parent=${postCid}`;
+            fetch(url, { method: 'POST' })
+                .then(res => {
+                    if (res.ok || res.redirected) {
+                        // 从正文中删除引用
+                        const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp('!\\s*\\[.*?\\]\\(' + escapedPath + '\\)', 'g');
+                        editor.value = editor.value.replace(regex, '');
+
+                        // 从侧边栏列表中移除
+                        const item = btn.closest('.attachment-item');
+                        item.style.opacity = '0';
+                        item.style.transform = 'translateX(20px)';
+                        setTimeout(() => {
+                            item.remove();
+                            // 如果列表空了，显示“暂无附件”
+                            const list = document.getElementById('attachment-list');
+                            if (list.querySelectorAll('.attachment-item').length === 0) {
+                                list.innerHTML = '<li style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>';
+                            }
+                        }, 300);
+                    } else {
+                        alert("删除失败");
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("删除出错");
+                });
         }
 
         window.onload = function () {
