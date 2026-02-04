@@ -537,10 +537,21 @@
             fetch('{{adminPath}}/system/restart', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 }
             })
-                .then(response => response.json())
+                .then(response => {
+                    if (response.status === 403) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || '权限不足');
+                        });
+                    }
+                    if (!response.ok) {
+                        throw new Error('请求失败: ' + response.statusText);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         btn.innerHTML = '<i class="fas fa-check"></i><span>指令已发送</span>';
@@ -560,8 +571,14 @@
                     }
                 })
                 .catch(error => {
+                    if (error.message.includes('模式') || error.message.includes('权限')) {
+                        alert(error.message);
+                        btn.innerHTML = originalContent;
+                        btn.style.pointerEvents = 'auto';
+                        return;
+                    }
                     console.error('Error:', error);
-                    // 这种情况通常是因为服务正在重启，连接被重置
+                    // 只有在非权限错误的情况下（通常是链接中断），才认为服务在重启
                     btn.innerHTML = '<i class="fas fa-clock"></i><span>正在重启中...</span>';
                     setTimeout(() => {
                         window.location.reload();

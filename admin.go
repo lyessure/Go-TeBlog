@@ -190,8 +190,37 @@ func main() {
 		db.Exec("UPDATE go_sessions SET created_at = ? WHERE session_id = ?", time.Now().Unix(), sessionID)
 		c.SetCookie("te_auth", sessionID, int(timeout), "/", "", false, true)
 
+		// Fetch user group
+		var userGroup string
+		db.QueryRow("SELECT \"group\" FROM typecho_users WHERE name = ?", username).Scan(&userGroup)
+
 		c.Set("username", username)
+		c.Set("userGroup", userGroup)
 		c.Set("adminPath", adminPath)
+		c.Next()
+	}
+
+	// Middleware to prevent write operations for visitors (applied to specific routes)
+	writeProtectMiddleware := func(c *gin.Context) {
+		group, _ := c.Get("userGroup")
+		if group == "visitor" {
+			log.Printf("访问拦截: 用户[%s] 角色[%s] 尝试执行写操作: %s", c.MustGet("username"), group, c.Request.URL.Path)
+			// 优化判断逻辑：如果是 API 常用路径或 headers 匹配，则返回 JSON
+			if c.GetHeader("X-Requested-With") == "XMLHttpRequest" ||
+				strings.Contains(c.GetHeader("Accept"), "application/json") ||
+				strings.HasSuffix(c.Request.URL.Path, "/restart") ||
+				strings.HasSuffix(c.Request.URL.Path, "/toggle") {
+				c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "访客模式：无权进行此操作"})
+			} else {
+				c.HTML(http.StatusForbidden, "admin_error.html", gin.H{
+					"AdminPath":    adminPath,
+					"ErrorTitle":   "操作受限",
+					"ErrorMessage": "您当前处于访客模式，无权执行修改操作。",
+				})
+			}
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 
@@ -242,6 +271,7 @@ func main() {
 	admin.GET("/dashboard", func(c *gin.Context) {
 		username, _ := c.Get("username")
 		adminPath, _ := c.Get("adminPath")
+		group, _ := c.Get("userGroup")
 
 		// 基础统计
 		var postCount, commentCount, categoryCount, attachmentCount int
@@ -340,6 +370,7 @@ func main() {
 
 		c.HTML(http.StatusOK, "admin_dashboard.html", gin.H{
 			"Username":         username,
+			"UserGroup":        group,
 			"Tab":              "dashboard",
 			"AdminPath":        adminPath,
 			"PostCount":        postCount,
@@ -390,7 +421,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/profile", func(c *gin.Context) {
+	admin.POST("/profile", writeProtectMiddleware, func(c *gin.Context) {
 		username, _ := c.Get("username")
 		oldPassword := c.PostForm("old_password")
 		newPassword := c.PostForm("new_password")
@@ -457,6 +488,12 @@ func main() {
 			}
 		}
 
+		group, _ := c.Get("userGroup")
+		apiKey := getOption(db, "grokApiKey", "")
+		if group == "visitor" && apiKey != "" {
+			apiKey = "********************************"
+		}
+
 		c.HTML(http.StatusOK, "admin_settings.html", gin.H{
 			"Username":           username,
 			"Tab":                "settings",
@@ -472,7 +509,7 @@ func main() {
 			"PageSize":           getOption(db, "pageSize", "10"),
 			"RecentPostsSize":    getOption(db, "recentPostsSize", "15"),
 			"RecentCommentsSize": getOption(db, "recentCommentsSize", "10"),
-			"GrokApiKey":         getOption(db, "grokApiKey", ""),
+			"GrokApiKey":         apiKey,
 			"AiApiUrl":           getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"),
 			"AiModel":            getOption(db, "aiModel", "llama-3.3-70b-versatile"),
 			"DefaultCategory":    getOption(db, "defaultCategory", "1"),
@@ -486,7 +523,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/settings", func(c *gin.Context) {
+	admin.POST("/settings", writeProtectMiddleware, func(c *gin.Context) {
 		username, _ := c.Get("username")
 		curAdminPath, _ := c.Get("adminPath")
 		title := c.PostForm("title")
@@ -685,7 +722,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/comment/toggle/:coid", func(c *gin.Context) {
+	admin.POST("/comment/toggle/:coid", writeProtectMiddleware, func(c *gin.Context) {
 		coid := c.Param("coid")
 		var currentStatus string
 		err := db.QueryRow("SELECT status FROM typecho_comments WHERE coid=?", coid).Scan(&currentStatus)
@@ -715,13 +752,13 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"success": true, "newStatus": newStatus})
 	})
 
-	admin.POST("/comment/approve/:coid", func(c *gin.Context) {
+	admin.POST("/comment/approve/:coid", writeProtectMiddleware, func(c *gin.Context) {
 		coid := c.Param("coid")
 		db.Exec("UPDATE typecho_comments SET status='approved' WHERE coid=?", coid)
 		c.Redirect(http.StatusFound, ""+adminPath+"/comments")
 	})
 
-	admin.POST("/comment/delete/:coid", func(c *gin.Context) {
+	admin.POST("/comment/delete/:coid", writeProtectMiddleware, func(c *gin.Context) {
 		coid := c.Param("coid")
 		var cid int
 		db.QueryRow("SELECT cid FROM typecho_comments WHERE coid=?", coid).Scan(&cid)
@@ -730,7 +767,7 @@ func main() {
 		c.Redirect(http.StatusFound, ""+adminPath+"/comments")
 	})
 
-	admin.POST("/post/delete/:cid", func(c *gin.Context) {
+	admin.POST("/post/delete/:cid", writeProtectMiddleware, func(c *gin.Context) {
 		cid := c.Param("cid")
 		// Delete the post
 		db.Exec("DELETE FROM typecho_contents WHERE cid=?", cid)
@@ -803,7 +840,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/category/save", func(c *gin.Context) {
+	admin.POST("/category/save", writeProtectMiddleware, func(c *gin.Context) {
 		name := c.PostForm("name")
 		slug := c.PostForm("slug")
 		midStr := c.PostForm("mid")
@@ -830,7 +867,7 @@ func main() {
 		c.Redirect(http.StatusFound, ""+adminPath+"/categories")
 	})
 
-	admin.POST("/category/reorder", func(c *gin.Context) {
+	admin.POST("/category/reorder", writeProtectMiddleware, func(c *gin.Context) {
 		var reorderReq struct {
 			Orders []struct {
 				Mid   int `json:"mid"`
@@ -925,7 +962,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/user/add", func(c *gin.Context) {
+	admin.POST("/user/add", writeProtectMiddleware, func(c *gin.Context) {
 		username, _ := c.Get("username")
 		name := c.PostForm("name")
 		screenName := c.PostForm("screenName")
@@ -1009,7 +1046,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/user/edit/:uid", func(c *gin.Context) {
+	admin.POST("/user/edit/:uid", writeProtectMiddleware, func(c *gin.Context) {
 		uid := c.Param("uid")
 		screenName := c.PostForm("screenName")
 		mail := c.PostForm("mail")
@@ -1037,7 +1074,7 @@ func main() {
 		c.Redirect(http.StatusFound, adminPath+"/users")
 	})
 
-	admin.POST("/user/delete/:uid", func(c *gin.Context) {
+	admin.POST("/user/delete/:uid", writeProtectMiddleware, func(c *gin.Context) {
 		uid := c.Param("uid")
 
 		// Prevent deleting 'admin' or current user
@@ -1058,7 +1095,7 @@ func main() {
 		c.Redirect(http.StatusFound, adminPath+"/users")
 	})
 
-	admin.POST("/category/delete/:mid", func(c *gin.Context) {
+	admin.POST("/category/delete/:mid", writeProtectMiddleware, func(c *gin.Context) {
 		mid := c.Param("mid")
 		// Delete category
 		db.Exec("DELETE FROM typecho_metas WHERE mid=? AND type='category'", mid)
@@ -1120,7 +1157,7 @@ func main() {
 		})
 	})
 
-	admin.POST("/backups/create", func(c *gin.Context) {
+	admin.POST("/backups/create", writeProtectMiddleware, func(c *gin.Context) {
 		backupMutex.Lock()
 		if isBackingUp {
 			backupMutex.Unlock()
@@ -1164,7 +1201,7 @@ func main() {
 		c.Redirect(http.StatusFound, adminPath+"/backups?msg=created")
 	})
 
-	admin.POST("/backups/delete/:filename", func(c *gin.Context) {
+	admin.POST("/backups/delete/:filename", writeProtectMiddleware, func(c *gin.Context) {
 		filename := c.Param("filename")
 		// 1. 严格检查后缀
 		// 2. 强制使用 filepath.Base 获取纯文件名，杜绝任何路径偏移
@@ -1180,7 +1217,7 @@ func main() {
 		c.Redirect(http.StatusFound, adminPath+"/backups?msg=deleted")
 	})
 
-	admin.POST("/backups/vacuum", func(c *gin.Context) {
+	admin.POST("/backups/vacuum", writeProtectMiddleware, func(c *gin.Context) {
 		adminPath, _ := c.Get("adminPath")
 		// 之前讨论过：VACUUM 会重新整理数据库文件，回收被删除数据占据的空间
 		_, err := db.Exec("VACUUM")
@@ -1192,7 +1229,7 @@ func main() {
 		c.Redirect(http.StatusFound, adminPath.(string)+"/backups?msg=vacuumed")
 	})
 
-	admin.POST("/system/restart", func(c *gin.Context) {
+	admin.POST("/system/restart", writeProtectMiddleware, func(c *gin.Context) {
 		// 先重启前台 blog 服务
 		go func() {
 			// 稍微延迟一下，确保响应能发出
@@ -1326,7 +1363,7 @@ func main() {
 		}
 	})
 
-	admin.POST("/attachment/delete/:cid", func(c *gin.Context) {
+	admin.POST("/attachment/delete/:cid", writeProtectMiddleware, func(c *gin.Context) {
 		attCid := c.Param("cid")
 		parentCid := c.Query("parent")
 
@@ -1346,7 +1383,7 @@ func main() {
 		c.Redirect(http.StatusFound, ""+adminPath+"/edit/"+parentCid)
 	})
 
-	admin.POST("/post/toggle/:cid", func(c *gin.Context) {
+	admin.POST("/post/toggle/:cid", writeProtectMiddleware, func(c *gin.Context) {
 		cid := c.Param("cid")
 		var currentStatus string
 		err := db.QueryRow("SELECT status FROM typecho_contents WHERE cid=?", cid).Scan(&currentStatus)
@@ -1369,7 +1406,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"success": true, "newStatus": newStatus})
 	})
 
-	admin.POST("/save", func(c *gin.Context) {
+	admin.POST("/save", writeProtectMiddleware, func(c *gin.Context) {
 		cid := c.PostForm("cid")
 		title := c.PostForm("title")
 		text := c.PostForm("text")
@@ -1466,7 +1503,7 @@ func main() {
 	})
 
 	// Attachment Upload (Relative Path Fix)
-	admin.POST("/upload", func(c *gin.Context) {
+	admin.POST("/upload", writeProtectMiddleware, func(c *gin.Context) {
 		parentCid := c.PostForm("cid")
 		file, err := c.FormFile("editormd-image-file")
 		if err != nil {
