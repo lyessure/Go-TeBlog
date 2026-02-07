@@ -779,6 +779,25 @@ func main() {
 
 	admin.POST("/post/delete/:cid", writeProtectMiddleware, func(c *gin.Context) {
 		cid := c.Param("cid")
+
+		// 物理删除文章关联的附件文件
+		rows, err := db.Query("SELECT title FROM typecho_contents WHERE parent=? AND type='attachment'", cid)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var relPath string
+				if err := rows.Scan(&relPath); err == nil && relPath != "" {
+					// 转换路径并物理删除：/blog/usr/uploads/... -> ./usr/uploads/...
+					localSubPath := strings.TrimPrefix(relPath, "/blog/")
+					// 安全校验：仅允许物理删除以 usr/uploads/ 开头的路径，且禁止路径穿越 (..)
+					if strings.HasPrefix(localSubPath, "usr/uploads/") && !strings.Contains(localSubPath, "..") {
+						absPath := filepath.Join(".", localSubPath)
+						os.Remove(absPath)
+					}
+				}
+			}
+		}
+
 		// Delete the post
 		db.Exec("DELETE FROM typecho_contents WHERE cid=?", cid)
 		// Delete relationships (categories/tags)
