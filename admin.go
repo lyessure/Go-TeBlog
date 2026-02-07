@@ -240,6 +240,9 @@ func main() {
 			// Cleanup old sessions
 			db.Exec("DELETE FROM go_sessions WHERE created_at < ?", time.Now().Unix()-int64(timeout))
 
+			// 更新最后登录时间
+			db.Exec("UPDATE typecho_users SET logged = ? WHERE name = ?", time.Now().Unix(), username)
+
 			sessionID := uuid.New().String()
 			_, err = db.Exec("INSERT INTO go_sessions (session_id, username, created_at) VALUES (?, ?, ?)",
 				sessionID, username, time.Now().Unix())
