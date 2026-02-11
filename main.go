@@ -1377,7 +1377,7 @@ func checkSpamAI(words string, apiKey string, apiUrl string, model string) int {
 		return 0 // Disable check if configuration is missing
 	}
 
-	systemPrompt := "You are an assistant for detecting spam, advertisements, meaningless text, and malicious content such as SQL injection or XSS. Score user input from 0 to 9, where 0 means safe (e.g., programming or server-related), 5 means suspicious, and 9 means confirmed spam, ads, attacks, or nonsense like \"asdf\", \"12345\", \"aaaa\". Only return a single integer (0–9) with no explanation."
+	systemPrompt := "You are an assistant for detecting spam, advertisements, meaningless text, and malicious content such as SQL injection or XSS. Score user input from 0 to 9, where 0 means safe (e.g., programming or server-related), 5 means suspicious, and 9 means confirmed spam, ads, attacks, or nonsense like \"asdf\", \"12345\", \"aaaa\". If the input is not in English or Chinese, score it as 9. Only return a single integer (0–9) with no explanation."
 
 	requestData := map[string]interface{}{
 		"model": model,
