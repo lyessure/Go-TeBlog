@@ -410,11 +410,24 @@ func main() {
 	// Fallback to static folder for root-level files
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
+
+		// 尝试从 static 目录直接查找 (例如 /favicon.ico)
 		fullPath := filepath.Join("./static", path)
 		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
 			c.File(fullPath)
 			return
 		}
+
+		// 如果路径以 /blog/ 开头，且请求的是 .html 文件，尝试去除前缀后在 static 目录查找
+		if strings.HasPrefix(path, "/blog/") && strings.HasSuffix(path, ".html") {
+			relPath := strings.TrimPrefix(path, "/blog/")
+			fullPath = filepath.Join("./static", relPath)
+			if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
+				c.File(fullPath)
+				return
+			}
+		}
+
 		c.String(http.StatusNotFound, "404 page not found")
 	})
 
