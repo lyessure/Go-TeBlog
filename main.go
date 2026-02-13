@@ -475,7 +475,7 @@ func main() {
 				return res
 			}
 
-			delta := 2
+			delta := 1
 			res = append(res, 1)
 
 			start := current - delta
