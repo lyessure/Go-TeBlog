@@ -639,12 +639,39 @@ func main() {
 		var rows *sql.Rows
 		var err error
 
+		stickyCidsStr := getOption(db, "sticky_cids", "")
+		stickyMap := make(map[int]bool)
+		if stickyCidsStr != "" {
+			for _, s := range strings.Split(stickyCidsStr, ",") {
+				var id int
+				fmt.Sscan(s, &id)
+				if id > 0 {
+					stickyMap[id] = true
+				}
+			}
+		}
+
+		orderBy := "created DESC"
+		if stickyCidsStr != "" {
+			// 基础校验，确保仅包含数字和逗号
+			isSafe := true
+			for _, r := range stickyCidsStr {
+				if (r < '0' || r > '9') && r != ',' {
+					isSafe = false
+					break
+				}
+			}
+			if isSafe {
+				orderBy = fmt.Sprintf("CASE WHEN cid IN (%s) THEN 1 ELSE 0 END DESC, created DESC", stickyCidsStr)
+			}
+		}
+
 		if group == "visitor" {
 			db.QueryRow("SELECT COUNT(*) FROM typecho_contents WHERE type='post' AND status='publish'").Scan(&total)
-			rows, err = db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' AND status='publish' ORDER BY created DESC LIMIT ? OFFSET ?", pageSize, offset)
+			rows, err = db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' AND status='publish' ORDER BY "+orderBy+" LIMIT ? OFFSET ?", pageSize, offset)
 		} else {
 			db.QueryRow("SELECT COUNT(*) FROM typecho_contents WHERE type='post'").Scan(&total)
-			rows, err = db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' ORDER BY created DESC LIMIT ? OFFSET ?", pageSize, offset)
+			rows, err = db.Query("SELECT cid, title, created, status FROM typecho_contents WHERE type='post' ORDER BY "+orderBy+" LIMIT ? OFFSET ?", pageSize, offset)
 		}
 
 		if err != nil {
@@ -664,6 +691,7 @@ func main() {
 				"Title":   title,
 				"Status":  status,
 				"Created": time.Unix(created, 0).Format("2006-01-02"),
+				"IsTop":   stickyMap[cid],
 			})
 		}
 
@@ -1473,6 +1501,29 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true, "newStatus": newStatus})
+	})
+
+	admin.POST("/post/toggle-top/:cid", writeProtectMiddleware, func(c *gin.Context) {
+		cid := c.Param("cid")
+		stickyCidsStr := getOption(db, "sticky_cids", "")
+		cids := strings.Split(stickyCidsStr, ",")
+		var newCids []string
+		found := false
+		for _, id := range cids {
+			if id == "" {
+				continue
+			}
+			if id == cid {
+				found = true
+				continue
+			}
+			newCids = append(newCids, id)
+		}
+		if !found {
+			newCids = append(newCids, cid)
+		}
+		setOption(db, "sticky_cids", strings.Join(newCids, ","))
+		c.JSON(http.StatusOK, gin.H{"success": true, "isTop": !found})
 	})
 
 	admin.POST("/save", writeProtectMiddleware, func(c *gin.Context) {

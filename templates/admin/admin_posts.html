@@ -400,6 +400,7 @@
                 <tr>
                     <th>标题</th>
                     <th>日期</th>
+                    <th>置顶</th>
                     <th>状态</th>
                     <th>操作</th>
                 </tr>
@@ -409,6 +410,11 @@
                 <tr>
                     <td>{{.Title}}</td>
                     <td>{{.Created}}</td>
+                    <td style="text-align: center;">
+                        <i class="fa{{if .IsTop}}s{{else}}r{{end}} fa-star" 
+                           style="cursor: pointer; color: {{if .IsTop}}#f1c40f{{else}}#cbd5e1{{end}}; font-size: 1.2em;" 
+                           onclick="toggleTop({{.Cid}}, this)"></i>
+                    </td>
                     <td>
                         <label class="switch">
                             <input type="checkbox" {{if eq .Status "publish" }}checked{{end}} onchange="toggleStatus({{.Cid}}, this)">
@@ -466,6 +472,32 @@
         {{end}}
     </div>
     <script>
+        function toggleTop(cid, icon) {
+            fetch('{{adminPath}}/post/toggle-top/' + cid, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.isTop) {
+                        icon.className = 'fas fa-star';
+                        icon.style.color = '#f1c40f';
+                    } else {
+                        icon.className = 'far fa-star';
+                        icon.style.color = '#cbd5e1';
+                    }
+                    // 提示用户需要刷新才能看到排序变化
+                    console.log('置顶状态已更新');
+                } else {
+                    alert(data.message || '操作失败');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('网络错误');
+            });
+        }
+
         function toggleStatus(cid, checkbox) {
             fetch('{{adminPath}}/post/toggle/' + cid, {
                 method: 'POST'

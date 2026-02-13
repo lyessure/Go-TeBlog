@@ -29,3 +29,23 @@
     font-weight: 600;
     color: #1f2937;
 }
+
+.sticky-badge {
+    background: linear-gradient(135deg, #ff7675, #d63031);
+    color: #fff;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    box-shadow: 0 2px 4px rgba(214, 48, 49, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sticky-badge i {
+    font-size: 10px;
+    margin-right: 4px;
+}

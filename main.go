@@ -79,6 +79,7 @@ type Post struct {
 	AuthorId    int
 	Author      string
 	Categories  []Category
+	IsTop       bool
 }
 
 type Category struct {
@@ -1134,6 +1135,13 @@ func getPost(db *sql.DB, cid int) (Post, bool) {
 		p.Author = "admin"
 	}
 	p.Categories = getPostCategories(db, p.Cid)
+	stickyCidsStr := getOption(db, "sticky_cids", "")
+	for _, idStr := range strings.Split(stickyCidsStr, ",") {
+		if idStr != "" && idStr == fmt.Sprintf("%d", p.Cid) {
+			p.IsTop = true
+			break
+		}
+	}
 	return p, true
 }
 
@@ -1158,7 +1166,22 @@ func getPosts(db *sql.DB, page, pageSize int, search string) ([]Post, int) {
 
 	db.QueryRow(queryCount, args...).Scan(&total)
 
-	queryList += " ORDER BY t.created DESC LIMIT ? OFFSET ?"
+	stickyCidsStr := getOption(db, "sticky_cids", "")
+	orderBy := "t.created DESC"
+	if stickyCidsStr != "" {
+		isSafe := true
+		for _, r := range stickyCidsStr {
+			if (r < '0' || r > '9') && r != ',' {
+				isSafe = false
+				break
+			}
+		}
+		if isSafe {
+			orderBy = fmt.Sprintf("CASE WHEN t.cid IN (%s) THEN 1 ELSE 0 END DESC, t.created DESC", stickyCidsStr)
+		}
+	}
+
+	queryList += " ORDER BY " + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, pageSize, (page-1)*pageSize)
 
 	var posts []Post
@@ -1167,6 +1190,17 @@ func getPosts(db *sql.DB, page, pageSize int, search string) ([]Post, int) {
 		return nil, 0
 	}
 	defer rows.Close()
+	stickyMap := make(map[int]bool)
+	if stickyCidsStr != "" {
+		for _, s := range strings.Split(stickyCidsStr, ",") {
+			var id int
+			fmt.Sscan(s, &id)
+			if id > 0 {
+				stickyMap[id] = true
+			}
+		}
+	}
+
 	for rows.Next() {
 		var p Post
 		rows.Scan(&p.Cid, &p.Title, &p.Slug, &p.Created, &p.Text, &p.CommentsNum, &p.AuthorId, &p.Author)
@@ -1174,6 +1208,7 @@ func getPosts(db *sql.DB, page, pageSize int, search string) ([]Post, int) {
 			p.Author = "admin"
 		}
 		p.Categories = getPostCategories(db, p.Cid)
+		p.IsTop = stickyMap[p.Cid]
 		posts = append(posts, p)
 	}
 	return posts, total
@@ -1189,21 +1224,48 @@ func getPostsByCategory(db *sql.DB, page, pageSize int, slug string) ([]Post, in
 
 	offset := (page - 1) * pageSize
 	var posts []Post
+	stickyCidsStr := getOption(db, "sticky_cids", "")
+	orderBy := "c.created DESC"
+	if stickyCidsStr != "" {
+		isSafe := true
+		for _, r := range stickyCidsStr {
+			if (r < '0' || r > '9') && r != ',' {
+				isSafe = false
+				break
+			}
+		}
+		if isSafe {
+			orderBy = fmt.Sprintf("CASE WHEN c.cid IN (%s) THEN 1 ELSE 0 END DESC, c.created DESC", stickyCidsStr)
+		}
+	}
+
 	rows, err := db.Query(`
 		SELECT c.cid, c.title, c.slug, c.created, c.text, c.commentsNum 
 		FROM typecho_contents c 
 		JOIN typecho_relationships r ON c.cid = r.cid 
 		JOIN typecho_metas m ON r.mid = m.mid 
 		WHERE c.type='post' AND c.status='publish' AND m.type='category' AND m.slug=? 
-		ORDER BY c.created DESC LIMIT ? OFFSET ?`, slug, pageSize, offset)
+		ORDER BY `+orderBy+` LIMIT ? OFFSET ?`, slug, pageSize, offset)
 	if err != nil {
 		return nil, 0
 	}
 	defer rows.Close()
+	stickyMap := make(map[int]bool)
+	if stickyCidsStr != "" {
+		for _, s := range strings.Split(stickyCidsStr, ",") {
+			var id int
+			fmt.Sscan(s, &id)
+			if id > 0 {
+				stickyMap[id] = true
+			}
+		}
+	}
+
 	for rows.Next() {
 		var p Post
 		rows.Scan(&p.Cid, &p.Title, &p.Slug, &p.Created, &p.Text, &p.CommentsNum)
 		p.Categories = getPostCategories(db, p.Cid)
+		p.IsTop = stickyMap[p.Cid]
 		posts = append(posts, p)
 	}
 	return posts, total
@@ -1215,8 +1277,25 @@ func getRecentPostsSidebar(db *sql.DB, catSlug string) []Post {
 	var rows *sql.Rows
 	var err error
 
+	stickyCidsStr := getOption(db, "sticky_cids", "")
+	isSafe := true
+	if stickyCidsStr != "" {
+		for _, r := range stickyCidsStr {
+			if (r < '0' || r > '9') && r != ',' {
+				isSafe = false
+				break
+			}
+		}
+	} else {
+		isSafe = false
+	}
+
 	if catSlug != "" {
 		// Only from current category
+		orderBy := "t.created DESC"
+		if isSafe {
+			orderBy = fmt.Sprintf("CASE WHEN t.cid IN (%s) THEN 1 ELSE 0 END DESC, t.created DESC", stickyCidsStr)
+		}
 		rows, err = db.Query(`SELECT t.cid, t.title, t.slug, t.created, t.text, t.commentsNum 
                                FROM typecho_contents t
                                JOIN typecho_relationships r ON t.cid = r.cid
@@ -1224,23 +1303,39 @@ func getRecentPostsSidebar(db *sql.DB, catSlug string) []Post {
                                LEFT JOIN go_category_settings s ON m.mid = s.mid
                                WHERE t.type='post' AND t.status='publish' AND m.type='category' AND m.slug=?
                                AND COALESCE(s.is_offline, 0) = 0
-                               ORDER BY t.created DESC LIMIT ?`, catSlug, limit)
+                               ORDER BY `+orderBy+` LIMIT ?`, catSlug, limit)
 	} else {
 		// Use homepage allow-list logic
+		orderBy := "created DESC"
+		if isSafe {
+			orderBy = fmt.Sprintf("CASE WHEN cid IN (%s) THEN 1 ELSE 0 END DESC, created DESC", stickyCidsStr)
+		}
 		rows, err = db.Query(`SELECT cid, title, slug, created, text, commentsNum 
                               FROM typecho_contents 
                               WHERE type='post' AND status='publish' 
                               AND cid NOT IN (SELECT cid FROM typecho_relationships r JOIN go_category_settings s ON r.mid = s.mid WHERE s.show_on_home = 0 OR s.is_offline = 1)
-                              ORDER BY created DESC LIMIT ?`, limit)
+                              ORDER BY `+orderBy+` LIMIT ?`, limit)
 	}
 
 	if err != nil {
 		return nil
 	}
 	defer rows.Close()
+	stickyMap := make(map[int]bool)
+	if stickyCidsStr != "" {
+		for _, s := range strings.Split(stickyCidsStr, ",") {
+			var id int
+			fmt.Sscan(s, &id)
+			if id > 0 {
+				stickyMap[id] = true
+			}
+		}
+	}
+
 	for rows.Next() {
 		var p Post
 		rows.Scan(&p.Cid, &p.Title, &p.Slug, &p.Created, &p.Text, &p.CommentsNum)
+		p.IsTop = stickyMap[p.Cid]
 		posts = append(posts, p)
 	}
 	return posts
