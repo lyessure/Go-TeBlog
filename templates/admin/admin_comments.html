@@ -216,6 +216,46 @@
             color: white;
         }
 
+        .action-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .icon-action-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 7px;
+            border: 1px solid #dbe4ea;
+            background: #f8fafc;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+
+        .icon-action-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #334155;
+        }
+
+        .icon-action-btn.delete {
+            border-color: #f1d4da;
+            background: #fff7f8;
+            color: #be123c;
+        }
+
+        .icon-action-btn.delete:hover {
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #9f1239;
+        }
+
         .status-waiting {
             color: #f59e0b;
             font-weight: bold;
@@ -429,10 +469,14 @@
                         </label>
                     </td>
                     <td>
-                        <form action="{{adminPath}}/comment/delete/{{.Coid}}" method="POST"
-                            onsubmit="return confirm('确定删除此评论？')">
-                            <button type="submit" class="btn btn-delete">删除</button>
-                        </form>
+                        <div class="action-group">
+                            <form action="{{adminPath}}/comment/delete/{{.Coid}}" method="POST"
+                                onsubmit="return confirm('确定删除此评论？')">
+                                <button type="submit" class="icon-action-btn delete" title="删除" aria-label="删除">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {{end}}
