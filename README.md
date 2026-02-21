@@ -82,6 +82,58 @@ sudo bash build.sh
 
 ---
 
+## 🔄 Typecho 迁移说明（目录规范）
+
+为保证 Go-TeBlog 与 Typecho 数据结构兼容，按以下规则准备数据：
+
+- 附件目录需要使用：`项目主目录/usr/uploads`
+- SQLite 数据库文件需要命名为：`blog.sqlite`
+- SQLite 数据库文件需要放在：`项目主目录/blog.sqlite`
+
+### 场景 A：原 Typecho 已使用 SQLite
+
+1. 停止旧站写入（建议维护模式或停服务）。
+2. 备份旧站数据（数据库 + `usr/uploads`）。
+3. 将旧站附件目录复制到本项目：`usr/uploads`。
+4. 将旧站 SQLite 数据库复制到本项目主目录，并重命名为 `blog.sqlite`。
+5. 确认数据库表前缀为 `typecho_`（Go-TeBlog 按 Typecho 兼容结构读取）。
+6. 执行部署脚本重启服务：
+```bash
+sudo bash build.sh
+```
+
+### 场景 B：原 Typecho 使用 MySQL 或 PostgreSQL
+
+必须先转换为 SQLite，再放入项目主目录。
+
+1. 进入工具目录并执行转换程序：
+```bash
+cd tools
+go run tosqlite.go
+```
+2. 按提示选择源库类型并填写连接信息（MySQL/PostgreSQL、主机、端口、账号、库名、表前缀）。
+3. 转换完成后会在当前目录生成 `blog.sqlite`。
+4. 将其移动到项目主目录：
+```bash
+mv blog.sqlite ../blog.sqlite
+cd ..
+```
+5. 将 Typecho 的 `usr/uploads` 同步到本项目主目录下的 `usr/uploads`。
+6. 执行部署脚本重启服务：
+```bash
+sudo bash build.sh
+```
+
+### 迁移后检查清单
+
+- `usr/uploads` 路径存在且 Web 进程可读写。
+- `blog.sqlite` 位于项目主目录，文件名无误。
+- 文章、分类、评论、附件链接在前台可正常访问。
+- 后台可正常登录并发布文章。
+- 若旧站域名变化，请在后台“系统设置”检查站点 URL，避免附件与链接仍指向旧域名。
+
+---
+
 ## 📸 功能预览
 
 ### 前台展示
@@ -171,4 +223,3 @@ sudo bash build.sh
 ![后台管理 - 系统设置](screenshot/6.png)
 ![后台管理 - 用户管理](screenshot/7.png)
 ![后台管理 - 数据库备份](screenshot/8.png)
-
