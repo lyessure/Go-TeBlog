@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>附件管理 - Go-TeBlog</title>
+    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2d3436;
+            color: #dfe6e9;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            position: fixed;
+            left: 0;
+            top: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h3 {
+            color: #fff;
+            margin: 10px 0 30px 10px;
+            font-size: 1.25em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar h3 i {
+            color: #0984e3;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #636e72;
+            margin: 20px 0 10px 10px;
+        }
+
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #b2bec3;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .sidebar a:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar a.active {
+            background: #0984e3;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+        }
+
+        .sidebar a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 10px 0;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+            margin-left: 240px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            padding-top: 100px;
+        }
+
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 40px;
+            z-index: 5;
+        }
+
+        .user-menu {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 50px;
+            transition: background 0.2s;
+            font-size: 14px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+
+        .user-menu:hover {
+            background: #fff;
+            border-color: #cbd5e1;
+        }
+
+        .user-menu .dropdown {
+            position: absolute;
+            top: 100%;
+            margin-top: 5px;
+            right: 0;
+            background: #fff;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            padding: 8px 0;
+            z-index: 100;
+        }
+
+        .user-menu .dropdown::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+        }
+
+        .user-menu:hover .dropdown {
+            display: flex;
+        }
+
+        .dropdown a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #475569;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dropdown a:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .page-title {
+            margin: 0 0 20px;
+            font-size: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #64748b;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .path {
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        .name-ellipsis {
+            max-width: 380px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .post-ellipsis {
+            display: inline-block;
+            max-width: 320px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        .preview-trigger {
+            cursor: zoom-in;
+            color: #0984e3;
+        }
+
+        #hoverPreview {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
+            padding: 8px;
+            width: 280px;
+            pointer-events: auto;
+        }
+
+        #hoverPreview.zoomed {
+            width: auto;
+            max-width: 92vw;
+        }
+
+        .preview-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 6px;
+        }
+
+        .preview-zoom-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            color: #334155;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .preview-zoom-btn:hover {
+            border-color: #0984e3;
+            color: #0984e3;
+        }
+
+        #hoverPreview img {
+            display: block;
+            width: 100%;
+            max-height: 180px;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+
+        #hoverPreview.zoomed img {
+            width: auto;
+            max-width: calc(92vw - 32px);
+            max-height: 85vh;
+        }
+
+        .ref-link {
+            color: #0984e3;
+            text-decoration: none;
+        }
+
+        .ref-link:hover {
+            text-decoration: underline;
+        }
+
+        .icon-action-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            background: #fff1f2;
+            color: #e11d48;
+            border: 1px solid #ffe4e6;
+        }
+
+        .icon-action-btn:hover {
+            background: #ffe4e6;
+            transform: translateY(-1px);
+        }
+
+        .inline-form {
+            display: inline;
+        }
+
+        .empty {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            color: #64748b;
+        }
+
+        .pager {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .pager a,
+        .pager span {
+            min-width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            text-decoration: none;
+            color: #64748b;
+            background: #fff;
+            font-size: 14px;
+        }
+
+        .pager a:hover {
+            color: #0984e3;
+            border-color: #0984e3;
+        }
+
+        .pager .active {
+            background: #0984e3;
+            border-color: #0984e3;
+            color: #fff;
+        }
+
+        .pager .nav-arrow {
+            color: #cbd5e1;
+            background: #f8fafc;
+        }
+
+        .goto-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 10px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .goto-box input {
+            width: 58px;
+            height: 36px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            text-align: center;
+            outline: none;
+        }
+
+        .goto-box input:focus {
+            border-color: #0984e3;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .search-form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-form input[type="text"] {
+            width: 260px;
+            height: 36px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0 12px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .search-form input[type="text"]:focus {
+            border-color: #0984e3;
+        }
+
+        .search-btn {
+            height: 36px;
+            border: 1px solid #0984e3;
+            background: #0984e3;
+            color: #fff;
+            border-radius: 8px;
+            padding: 0 14px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .search-btn:hover {
+            background: #0873c4;
+            border-color: #0873c4;
+        }
+
+        .clear-btn {
+            color: #64748b;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .clear-btn:hover {
+            color: #0984e3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+
+        <div class="nav-label">核心控制</div>
+        <a href="{{adminPath}}/dashboard"><i class="fas fa-tachometer-alt"></i> 仪表盘</a>
+
+        <div class="nav-label">内容管理</div>
+        <a href="{{adminPath}}/posts"><i class="fas fa-file-alt"></i> 文章管理</a>
+        <a href="{{adminPath}}/categories"><i class="fas fa-list"></i> 分类管理</a>
+        <a href="{{adminPath}}/comments"><i class="fas fa-comments"></i> 评论管理</a>
+        <a href="{{adminPath}}/attachments" class="active"><i class="fas fa-paperclip"></i> 附件管理</a>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="nav-label">系统设置</div>
+        <a href="{{adminPath}}/users"><i class="fas fa-users"></i> 用户管理</a>
+        <a href="{{adminPath}}/settings"><i class="fas fa-cog"></i> 系统设置</a>
+        <a href="{{adminPath}}/backups"><i class="fas fa-database"></i> 数据备份</a>
+
+        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
+    </div>
+
+    <div class="top-bar">
+        <div class="user-menu">
+            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <span>{{.Username}}</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
+            <div class="dropdown">
+                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
+                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="toolbar">
+            <h2 class="page-title" style="margin:0;">附件管理</h2>
+            <form method="GET" action="{{adminPath}}/attachments" class="search-form">
+                <input type="text" name="q" value="{{.SearchQuery}}" placeholder="按文章标题搜索附件">
+                <button type="submit" class="search-btn">搜索</button>
+                {{if .SearchQuery}}
+                <a href="{{adminPath}}/attachments" class="clear-btn">清空</a>
+                {{end}}
+            </form>
+        </div>
+
+        {{if .Attachments}}
+        <table>
+            <thead>
+                <tr>
+                    <th>附件</th>
+                    <th>引用文章</th>
+                    <th>上传时间</th>
+                    <th style="width: 90px;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Attachments}}
+                <tr>
+                    <td>
+                        <div class="name-ellipsis {{if .IsImage}}preview-trigger{{end}}" title="{{.FileName}}" {{if .IsImage}}data-preview-src="{{.Path}}"{{end}}>{{.FileName}}</div>
+                        <div class="path">{{.Path}}</div>
+                    </td>
+                    <td>
+                        {{if gt .ParentCid 0}}
+                        <a class="ref-link post-ellipsis" href="{{adminPath}}/edit/{{.ParentCid}}" title="{{.PostTitle}}">{{.PostTitle}}</a>
+                        {{else}}
+                        <span class="post-ellipsis" style="color:#94a3b8;" title="{{.PostTitle}}">{{.PostTitle}}</span>
+                        {{end}}
+                    </td>
+                    <td>{{.Created}}</td>
+                    <td>
+                        <form action="{{adminPath}}/attachment/delete/{{.Cid}}?back=attachments" method="POST" class="inline-form" onsubmit="return confirm('确定要删除此附件吗？删除后会自动移除文章中的引用。')">
+                            <button type="submit" class="icon-action-btn" title="删除" aria-label="删除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{else}}
+        <div class="empty">暂无附件。</div>
+        {{end}}
+
+        {{if gt .TotalPages 1}}
+        <div class="pager">
+            {{if .HasPrev}}
+            <a href="?page={{.PrevPage}}{{if .SearchQuery}}&q={{urlquery .SearchQuery}}{{end}}">&lt;</a>
+            {{else}}
+            <span class="nav-arrow">&lt;</span>
+            {{end}}
+
+            {{range $p := iterate 1 .TotalPages}}
+            {{if eq $p $.CurrentPage}}
+            <span class="active">{{$p}}</span>
+            {{else}}
+            <a href="?page={{$p}}{{if $.SearchQuery}}&q={{urlquery $.SearchQuery}}{{end}}">{{$p}}</a>
+            {{end}}
+            {{end}}
+
+            {{if .HasNext}}
+            <a href="?page={{.NextPage}}{{if .SearchQuery}}&q={{urlquery .SearchQuery}}{{end}}">&gt;</a>
+            {{else}}
+            <span class="nav-arrow">&gt;</span>
+            {{end}}
+
+            <div class="goto-box">
+                <span>前往</span>
+                <input type="number" id="gotoPage" min="1" max="{{.TotalPages}}" value="{{.CurrentPage}}" onkeydown="if(event.key==='Enter')gotoPage()">
+                <span>页</span>
+            </div>
+        </div>
+        {{end}}
+    </div>
+
+    <div id="hoverPreview">
+        <div class="preview-toolbar">
+            <button id="previewZoomBtn" class="preview-zoom-btn" type="button" title="放大/还原">+</button>
+        </div>
+        <img id="hoverPreviewImg" src="" alt="preview">
+    </div>
+
+    <script>
+        (function () {
+            const preview = document.getElementById('hoverPreview');
+            const previewImg = document.getElementById('hoverPreviewImg');
+            const zoomBtn = document.getElementById('previewZoomBtn');
+            const offset = 16;
+            let currentTrigger = null;
+            let isZoomed = false;
+            let hideTimer = null;
+            let lastClientX = 0;
+            let lastClientY = 0;
+
+            function cancelHide() {
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+            }
+
+            function scheduleHide() {
+                cancelHide();
+                hideTimer = setTimeout(function () {
+                    hidePreview();
+                }, 220);
+            }
+
+            function setZoomState(zoomed) {
+                isZoomed = zoomed;
+                if (isZoomed) {
+                    preview.classList.add('zoomed');
+                    zoomBtn.textContent = '-';
+                    zoomBtn.title = '还原';
+                } else {
+                    preview.classList.remove('zoomed');
+                    zoomBtn.textContent = '+';
+                    zoomBtn.title = '放大';
+                }
+            }
+
+            function hidePreview() {
+                cancelHide();
+                preview.style.display = 'none';
+                previewImg.src = '';
+                currentTrigger = null;
+                setZoomState(false);
+            }
+
+            function clampPreviewToViewport() {
+                const maxLeft = Math.max(8, window.innerWidth - preview.offsetWidth - 8);
+                const maxTop = Math.max(8, window.innerHeight - preview.offsetHeight - 8);
+                const currentLeft = parseInt(preview.style.left || '8', 10);
+                const currentTop = parseInt(preview.style.top || '8', 10);
+                preview.style.left = Math.max(8, Math.min(currentLeft, maxLeft)) + 'px';
+                preview.style.top = Math.max(8, Math.min(currentTop, maxTop)) + 'px';
+            }
+
+            function movePreview(clientX, clientY) {
+                lastClientX = clientX;
+                lastClientY = clientY;
+                const maxLeft = window.innerWidth - preview.offsetWidth - 8;
+                const maxTop = window.innerHeight - preview.offsetHeight - 8;
+                const desiredLeft = clientX + offset;
+                const desiredTop = clientY + offset;
+                const left = Math.max(8, Math.min(desiredLeft, maxLeft));
+                const top = Math.max(8, Math.min(desiredTop, maxTop));
+                preview.style.left = left + 'px';
+                preview.style.top = top + 'px';
+            }
+
+            zoomBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setZoomState(!isZoomed);
+                if (preview.style.display === 'block') {
+                    if (lastClientX > 0 || lastClientY > 0) {
+                        movePreview(lastClientX, lastClientY);
+                    }
+                    clampPreviewToViewport();
+                }
+            });
+
+            preview.addEventListener('mouseenter', function () {
+                cancelHide();
+            });
+
+            preview.addEventListener('mouseleave', function (e) {
+                if (currentTrigger && e.relatedTarget && currentTrigger.contains(e.relatedTarget)) {
+                    return;
+                }
+                scheduleHide();
+            });
+
+            document.querySelectorAll('.preview-trigger').forEach(function (el) {
+                el.addEventListener('mouseenter', function (e) {
+                    cancelHide();
+                    const src = el.getAttribute('data-preview-src');
+                    if (!src) return;
+                    currentTrigger = el;
+                    setZoomState(false);
+                    previewImg.src = src;
+                    preview.style.display = 'block';
+                    movePreview(e.clientX, e.clientY);
+                });
+                el.addEventListener('mouseleave', function (e) {
+                    if (e.relatedTarget && preview.contains(e.relatedTarget)) {
+                        return;
+                    }
+                    scheduleHide();
+                });
+            });
+
+            previewImg.addEventListener('load', function () {
+                if (preview.style.display !== 'block') return;
+                if (lastClientX > 0 || lastClientY > 0) {
+                    movePreview(lastClientX, lastClientY);
+                }
+                clampPreviewToViewport();
+            });
+
+            window.addEventListener('resize', function () {
+                if (preview.style.display !== 'block') return;
+                clampPreviewToViewport();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (preview.style.display !== 'block') return;
+                if (e.key === '+' || e.key === '=') {
+                    setZoomState(true);
+                } else if (e.key === '-') {
+                    setZoomState(false);
+                } else if (e.key === 'Escape') {
+                    hidePreview();
+                }
+            });
+        })();
+
+        function gotoPage() {
+            var page = parseInt(document.getElementById('gotoPage').value, 10);
+            var total = {{.TotalPages}};
+            var searchQuery = '{{js .SearchQuery}}';
+            if (page >= 1 && page <= total) {
+                var url = '?page=' + page;
+                if (searchQuery) {
+                    url += '&q=' + encodeURIComponent(searchQuery);
+                }
+                window.location.href = url;
+            }
+        }
+    </script>
+</body>
+
+</html>

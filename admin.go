@@ -271,6 +271,68 @@ func main() {
 
 	admin := r.Group(adminPath, authMiddleware)
 
+	attachmentPathRe := regexp.MustCompile(`"path"\s*:\s*"([^"]+)"`)
+	resolveAttachmentPath := func(title, text string) string {
+		normalize := func(p string) string {
+			p = strings.TrimSpace(strings.ReplaceAll(p, `\/`, `/`))
+			if p == "" {
+				return ""
+			}
+			if strings.HasPrefix(p, "/blog/usr/") {
+				return p
+			}
+			if strings.HasPrefix(p, "/usr/") {
+				return "/blog" + p
+			}
+			if strings.HasPrefix(p, "usr/") {
+				return "/blog/" + p
+			}
+			return p
+		}
+
+		normalizedTitle := normalize(title)
+		if strings.HasPrefix(normalizedTitle, "/blog/usr/") {
+			return normalizedTitle
+		}
+		matched := attachmentPathRe.FindStringSubmatch(text)
+		if len(matched) > 1 {
+			normalizedPath := normalize(matched[1])
+			if normalizedPath != "" {
+				return normalizedPath
+			}
+		}
+		return normalizedTitle
+	}
+
+	cleanupAttachmentReference := func(attCid string) int {
+		var relPathTitle, relPathText string
+		var parentCid int
+		err := db.QueryRow("SELECT title, text, parent FROM typecho_contents WHERE cid=? AND type='attachment'", attCid).Scan(&relPathTitle, &relPathText, &parentCid)
+		relPath := resolveAttachmentPath(relPathTitle, relPathText)
+		if err != nil || relPath == "" || parentCid <= 0 {
+			return parentCid
+		}
+
+		var postText string
+		err = db.QueryRow("SELECT text FROM typecho_contents WHERE cid=? AND type='post'", parentCid).Scan(&postText)
+		if err != nil || postText == "" {
+			return parentCid
+		}
+
+		escapedPath := regexp.QuoteMeta(relPath)
+		imageRefPattern := regexp.MustCompile(`!\[[^\]]*\]\(` + escapedPath + `(?:\s+"[^"]*")?\)`)
+		linkRefPattern := regexp.MustCompile(`\[[^\]]*\]\(` + escapedPath + `(?:\s+"[^"]*")?\)`)
+		compactedLineBreaks := regexp.MustCompile(`\n{3,}`)
+
+		newText := imageRefPattern.ReplaceAllString(postText, "")
+		newText = linkRefPattern.ReplaceAllString(newText, "")
+		newText = compactedLineBreaks.ReplaceAllString(newText, "\n\n")
+		if newText != postText {
+			_, _ = db.Exec("UPDATE typecho_contents SET text=?, modified=? WHERE cid=?", newText, time.Now().Unix(), parentCid)
+		}
+		return parentCid
+	}
+
 	admin.GET("/dashboard", func(c *gin.Context) {
 		username, _ := c.Get("username")
 		adminPath, _ := c.Get("adminPath")
@@ -754,6 +816,102 @@ func main() {
 			"Username":    username,
 			"Comments":    comments,
 			"Tab":         "comments",
+			"CurrentPage": page,
+			"TotalPages":  totalPages,
+			"HasPrev":     page > 1,
+			"HasNext":     page < totalPages,
+			"PrevPage":    page - 1,
+			"NextPage":    page + 1,
+		})
+	})
+
+	admin.GET("/attachments", func(c *gin.Context) {
+		pageStr := c.DefaultQuery("page", "1")
+		searchQuery := strings.TrimSpace(c.Query("q"))
+		page := 1
+		fmt.Sscanf(pageStr, "%d", &page)
+		if page < 1 {
+			page = 1
+		}
+		pageSize := 20
+		offset := (page - 1) * pageSize
+
+		group, _ := c.Get("userGroup")
+		var total int
+		countSQL := `
+			SELECT COUNT(*)
+			FROM typecho_contents a
+			LEFT JOIN typecho_contents p ON p.cid = a.parent AND p.type='post'
+			WHERE a.type='attachment'`
+		var countArgs []interface{}
+		if group == "visitor" {
+			countSQL += " AND p.status='publish'"
+		}
+		if searchQuery != "" {
+			countSQL += " AND p.title LIKE ?"
+			countArgs = append(countArgs, "%"+searchQuery+"%")
+		}
+		db.QueryRow(countSQL, countArgs...).Scan(&total)
+
+		querySQL := `
+			SELECT a.cid, a.title, a.text, a.created, a.parent, COALESCE(p.title, '')
+			FROM typecho_contents a
+			LEFT JOIN typecho_contents p ON p.cid = a.parent AND p.type='post'
+			WHERE a.type='attachment'`
+		var queryArgs []interface{}
+		if group == "visitor" {
+			querySQL += " AND p.status='publish'"
+		}
+		if searchQuery != "" {
+			querySQL += " AND p.title LIKE ?"
+			queryArgs = append(queryArgs, "%"+searchQuery+"%")
+		}
+		querySQL += `
+			ORDER BY a.created DESC
+			LIMIT ? OFFSET ?`
+		queryArgs = append(queryArgs, pageSize, offset)
+		rows, err := db.Query(querySQL, queryArgs...)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+		defer rows.Close()
+
+		var attachments []map[string]interface{}
+		for rows.Next() {
+			var cid, parent int
+			var relPathTitle, relPathText, postTitle string
+			var created int64
+			rows.Scan(&cid, &relPathTitle, &relPathText, &created, &parent, &postTitle)
+			relPath := resolveAttachmentPath(relPathTitle, relPathText)
+			displayName := filepath.Base(relPath)
+			if displayName == "." || displayName == "/" || displayName == "" {
+				displayName = filepath.Base(relPathTitle)
+			}
+			if postTitle == "" {
+				postTitle = "未引用"
+			}
+			ext := strings.ToLower(filepath.Ext(relPath))
+			isImage := ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp" || ext == ".bmp" || ext == ".svg"
+			attachments = append(attachments, map[string]interface{}{
+				"Cid":       cid,
+				"FileName":  displayName,
+				"Path":      relPath,
+				"IsImage":   isImage,
+				"Created":   time.Unix(created, 0).Format("2006-01-02 15:04"),
+				"ParentCid": parent,
+				"PostTitle": postTitle,
+			})
+		}
+
+		totalPages := (total + pageSize - 1) / pageSize
+		username, _ := c.Get("username")
+		c.HTML(http.StatusOK, "admin_attachments.html", gin.H{
+			"Username":    username,
+			"UserGroup":   group,
+			"Attachments": attachments,
+			"SearchQuery": searchQuery,
+			"Tab":         "attachments",
 			"CurrentPage": page,
 			"TotalPages":  totalPages,
 			"HasPrev":     page > 1,
@@ -1463,21 +1621,35 @@ func main() {
 	admin.POST("/attachment/delete/:cid", writeProtectMiddleware, func(c *gin.Context) {
 		attCid := c.Param("cid")
 		parentCid := c.Query("parent")
+		backTarget := c.Query("back")
 
-		// 1. Get file path from DB
-		var relPath string
-		err := db.QueryRow("SELECT title FROM typecho_contents WHERE cid=?", attCid).Scan(&relPath)
+		var relPathTitle, relPathText string
+		var parentFromDB int
+		err := db.QueryRow("SELECT title, text, parent FROM typecho_contents WHERE cid=? AND type='attachment'", attCid).Scan(&relPathTitle, &relPathText, &parentFromDB)
+		relPath := resolveAttachmentPath(relPathTitle, relPathText)
 		if err == nil && relPath != "" {
-			// 2. Physical delete
-			// Local path is relative to the current directory
 			localSubPath := strings.TrimPrefix(relPath, "/blog/")
-			absPath := filepath.Join(".", localSubPath)
-			os.Remove(absPath)
+			if strings.HasPrefix(localSubPath, "usr/uploads/") && !strings.Contains(localSubPath, "..") {
+				absPath := filepath.Join(".", localSubPath)
+				os.Remove(absPath)
+			}
 		}
 
-		// 3. Delete from DB
+		cleanupAttachmentReference(attCid)
 		db.Exec("DELETE FROM typecho_contents WHERE cid=?", attCid)
-		c.Redirect(http.StatusFound, ""+adminPath+"/edit/"+parentCid)
+
+		if backTarget == "attachments" {
+			c.Redirect(http.StatusFound, adminPath+"/attachments")
+			return
+		}
+		if parentCid == "" && parentFromDB > 0 {
+			parentCid = fmt.Sprintf("%d", parentFromDB)
+		}
+		if parentCid == "" {
+			c.Redirect(http.StatusFound, adminPath+"/attachments")
+			return
+		}
+		c.Redirect(http.StatusFound, adminPath+"/edit/"+parentCid)
 	})
 
 	admin.POST("/post/toggle/:cid", writeProtectMiddleware, func(c *gin.Context) {
