@@ -203,13 +203,11 @@
         .user-avatar {
             width: 36px;
             height: 36px;
-            background: #e2e8f0;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #64748b;
-            font-weight: 600;
+            display: block;
+            object-fit: cover;
+            overflow: hidden;
+            background: #e2e8f0;
         }
 
         .btn {
@@ -346,7 +344,7 @@
 
     <div class="top-bar">
         <div class="user-menu">
-            <i class="fas fa-user-circle" style="font-size: 1.4em; color: #6b7280;"></i>
+            <img src="{{userGravatar .Username}}" alt="{{.Username}} avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #e2e8f0;">
             <span>{{.Username}}</span>
             <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
             <div class="dropdown">
@@ -374,7 +372,7 @@
                 <tr>
                     <td>
                         <div class="user-info">
-                            <div class="user-avatar">{{substring .Name 1}}</div>
+                            <img class="user-avatar" src="{{gravatarURL .Mail}}" alt="{{.Name}} avatar" loading="lazy">
                             <span>{{.Name}}</span>
                         </div>
                     </td>

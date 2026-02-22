@@ -130,6 +130,23 @@ func main() {
 			}
 			return s
 		},
+		"gravatarURL": func(mail string) string {
+			normalized := strings.ToLower(strings.TrimSpace(mail))
+			hash := md5.Sum([]byte(normalized))
+			return fmt.Sprintf("https://www.gravatar.com/avatar/%x?s=80&d=identicon", hash)
+		},
+		"userGravatar": func(name string) string {
+			var mail string
+			err := db.QueryRow("SELECT mail FROM typecho_users WHERE name = ?", name).Scan(&mail)
+			if err != nil || strings.TrimSpace(mail) == "" {
+				fallback := strings.ToLower(strings.TrimSpace(name))
+				hash := md5.Sum([]byte(fallback))
+				return fmt.Sprintf("https://www.gravatar.com/avatar/%x?s=80&d=identicon", hash)
+			}
+			normalized := strings.ToLower(strings.TrimSpace(mail))
+			hash := md5.Sum([]byte(normalized))
+			return fmt.Sprintf("https://www.gravatar.com/avatar/%x?s=80&d=identicon", hash)
+		},
 		"adminPath": func() string { return adminPath },
 		// 分页辅助函数
 		"iterate": func(start, end int) []int {
