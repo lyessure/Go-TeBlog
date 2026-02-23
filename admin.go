@@ -850,7 +850,7 @@ func main() {
 		if page < 1 {
 			page = 1
 		}
-		pageSize := 20
+		pageSize := 10
 		offset := (page - 1) * pageSize
 
 		group, _ := c.Get("userGroup")

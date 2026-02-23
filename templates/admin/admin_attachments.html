@@ -223,6 +223,28 @@
             white-space: nowrap;
         }
 
+        .thumb-cell {
+            width: 72px;
+        }
+
+        .attachment-thumb {
+            width: 52px;
+            height: 52px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            object-fit: cover;
+            display: block;
+        }
+
+        .attachment-thumb.placeholder {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 18px;
+        }
+
         .post-ellipsis {
             display: inline-block;
             max-width: 320px;
@@ -240,19 +262,32 @@
         #hoverPreview {
             display: none;
             position: fixed;
+            inset: 0;
             z-index: 3000;
+            background: rgba(15, 23, 42, 0.45);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        #hoverPreview.open {
+            display: flex;
+        }
+
+        .preview-content {
             background: #fff;
             border: 1px solid #e2e8f0;
             border-radius: 10px;
             box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
             padding: 8px;
-            width: 280px;
-            pointer-events: auto;
+            width: 640px;
+            max-width: calc(92vw - 48px);
         }
 
-        #hoverPreview.zoomed {
+        #hoverPreview.zoomed .preview-content {
             width: auto;
-            max-width: 92vw;
+            max-width: calc(92vw - 48px);
         }
 
         .preview-toolbar {
@@ -282,7 +317,7 @@
         #hoverPreview img {
             display: block;
             width: 100%;
-            max-height: 180px;
+            max-height: 72vh;
             object-fit: contain;
             border-radius: 6px;
             background: #f8fafc;
@@ -290,7 +325,7 @@
 
         #hoverPreview.zoomed img {
             width: auto;
-            max-width: calc(92vw - 32px);
+            max-width: calc(92vw - 64px);
             max-height: 85vh;
         }
 
@@ -503,7 +538,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>附件</th>
+                    <th style="width: 92px;">缩略图</th>
                     <th>引用文章</th>
                     <th>上传时间</th>
                     <th style="width: 90px;">操作</th>
@@ -512,9 +547,12 @@
             <tbody>
                 {{range .Attachments}}
                 <tr>
-                    <td>
-                        <div class="name-ellipsis {{if .IsImage}}preview-trigger{{end}}" title="{{.FileName}}" {{if .IsImage}}data-preview-src="{{.Path}}"{{end}}>{{.FileName}}</div>
-                        <div class="path">{{.Path}}</div>
+                    <td class="thumb-cell">
+                        {{if .IsImage}}
+                        <img class="attachment-thumb preview-trigger" src="{{.Path}}" alt="{{.FileName}}" data-preview-src="{{.Path}}">
+                        {{else}}
+                        <span class="attachment-thumb placeholder" title="{{.FileName}}"><i class="fas fa-paperclip"></i></span>
+                        {{end}}
                     </td>
                     <td>
                         {{if gt .ParentCid 0}}
@@ -571,10 +609,12 @@
     </div>
 
     <div id="hoverPreview">
-        <div class="preview-toolbar">
-            <button id="previewZoomBtn" class="preview-zoom-btn" type="button" title="放大/还原">+</button>
+        <div class="preview-content">
+            <div class="preview-toolbar">
+                <button id="previewZoomBtn" class="preview-zoom-btn" type="button" title="放大/还原">+</button>
+            </div>
+            <img id="hoverPreviewImg" src="" alt="preview">
         </div>
-        <img id="hoverPreviewImg" src="" alt="preview">
     </div>
 
     <script>
@@ -582,26 +622,7 @@
             const preview = document.getElementById('hoverPreview');
             const previewImg = document.getElementById('hoverPreviewImg');
             const zoomBtn = document.getElementById('previewZoomBtn');
-            const offset = 16;
-            let currentTrigger = null;
             let isZoomed = false;
-            let hideTimer = null;
-            let lastClientX = 0;
-            let lastClientY = 0;
-
-            function cancelHide() {
-                if (hideTimer) {
-                    clearTimeout(hideTimer);
-                    hideTimer = null;
-                }
-            }
-
-            function scheduleHide() {
-                cancelHide();
-                hideTimer = setTimeout(function () {
-                    hidePreview();
-                }, 220);
-            }
 
             function setZoomState(zoomed) {
                 isZoomed = zoomed;
@@ -617,91 +638,33 @@
             }
 
             function hidePreview() {
-                cancelHide();
-                preview.style.display = 'none';
+                preview.classList.remove('open');
                 previewImg.src = '';
-                currentTrigger = null;
                 setZoomState(false);
             }
 
-            function clampPreviewToViewport() {
-                const maxLeft = Math.max(8, window.innerWidth - preview.offsetWidth - 8);
-                const maxTop = Math.max(8, window.innerHeight - preview.offsetHeight - 8);
-                const currentLeft = parseInt(preview.style.left || '8', 10);
-                const currentTop = parseInt(preview.style.top || '8', 10);
-                preview.style.left = Math.max(8, Math.min(currentLeft, maxLeft)) + 'px';
-                preview.style.top = Math.max(8, Math.min(currentTop, maxTop)) + 'px';
-            }
-
-            function movePreview(clientX, clientY) {
-                lastClientX = clientX;
-                lastClientY = clientY;
-                const maxLeft = window.innerWidth - preview.offsetWidth - 8;
-                const maxTop = window.innerHeight - preview.offsetHeight - 8;
-                const desiredLeft = clientX + offset;
-                const desiredTop = clientY + offset;
-                const left = Math.max(8, Math.min(desiredLeft, maxLeft));
-                const top = Math.max(8, Math.min(desiredTop, maxTop));
-                preview.style.left = left + 'px';
-                preview.style.top = top + 'px';
-            }
-
             zoomBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
                 setZoomState(!isZoomed);
-                if (preview.style.display === 'block') {
-                    if (lastClientX > 0 || lastClientY > 0) {
-                        movePreview(lastClientX, lastClientY);
-                    }
-                    clampPreviewToViewport();
-                }
-            });
-
-            preview.addEventListener('mouseenter', function () {
-                cancelHide();
-            });
-
-            preview.addEventListener('mouseleave', function (e) {
-                if (currentTrigger && e.relatedTarget && currentTrigger.contains(e.relatedTarget)) {
-                    return;
-                }
-                scheduleHide();
             });
 
             document.querySelectorAll('.preview-trigger').forEach(function (el) {
-                el.addEventListener('mouseenter', function (e) {
-                    cancelHide();
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const src = el.getAttribute('data-preview-src');
                     if (!src) return;
-                    currentTrigger = el;
-                    setZoomState(false);
+                    setZoomState(true);
                     previewImg.src = src;
-                    preview.style.display = 'block';
-                    movePreview(e.clientX, e.clientY);
-                });
-                el.addEventListener('mouseleave', function (e) {
-                    if (e.relatedTarget && preview.contains(e.relatedTarget)) {
-                        return;
-                    }
-                    scheduleHide();
+                    preview.classList.add('open');
                 });
             });
 
-            previewImg.addEventListener('load', function () {
-                if (preview.style.display !== 'block') return;
-                if (lastClientX > 0 || lastClientY > 0) {
-                    movePreview(lastClientX, lastClientY);
-                }
-                clampPreviewToViewport();
-            });
-
-            window.addEventListener('resize', function () {
-                if (preview.style.display !== 'block') return;
-                clampPreviewToViewport();
+            preview.addEventListener('click', function (e) {
+                hidePreview();
             });
 
             document.addEventListener('keydown', function (e) {
-                if (preview.style.display !== 'block') return;
+                if (!preview.classList.contains('open')) return;
                 if (e.key === '+' || e.key === '=') {
                     setZoomState(true);
                 } else if (e.key === '-') {
