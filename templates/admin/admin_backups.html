@@ -189,7 +189,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 14px;
         }
 
         h2 {
@@ -368,6 +368,11 @@
             color: #9f1239;
         }
 
+        .icon-action-btn[disabled] {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
         .empty-state {
             padding: 80px 0;
             text-align: center;
@@ -427,85 +432,92 @@
 
     <div class="content">
         <div class="container">
-            {{if .IsBackingUp}}
-            <div class="alert" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">
-                <i class="fas fa-spinner fa-spin"></i> 备份任务正在后台运行中，请稍后刷新查看结果...
-            </div>
-            {{end}}
-
             <header>
                 <h2><i class="fas fa-database" style="color: #0984e3;"></i> 数据备份</h2>
-                <div style="display: flex; gap: 10px;">
-                    <form action="{{adminPath}}/backups/vacuum" method="POST" class="inline-form"
-                        onsubmit="return confirm('压缩数据库将重新整理文件并释放空间，可能需要几秒钟，确定继续吗？')">
-                        <button type="submit" class="btn btn-outline" {{if .IsBackingUp}}disabled
-                            style="opacity: 0.6; cursor: not-allowed;" {{end}}>
-                            <i class="fas fa-compress-alt"></i> 压缩数据库 (VACUUM)
-                        </button>
-                    </form>
-                    <form action="{{adminPath}}/backups/create" method="POST" class="inline-form">
-                        <button type="submit" class="btn btn-primary" {{if .IsBackingUp}}disabled
-                            style="opacity: 0.6; cursor: not-allowed;" {{end}}>
-                            <i class="fas fa-plus"></i> 创建新备份
-                        </button>
-                    </form>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 14px;">
+                    <div style="display: flex; gap: 10px;">
+                        <form action="{{adminPath}}/backups/vacuum" method="POST" class="inline-form"
+                            onsubmit="return confirm('压缩数据库将重新整理文件并释放空间，可能需要几秒钟，确定继续吗？')">
+                            <button type="submit" class="btn btn-outline" {{if .IsBackingUp}}disabled
+                                style="opacity: 0.6; cursor: not-allowed;" {{end}}>
+                                <i class="fas fa-compress-alt"></i> 压缩数据库 (VACUUM)
+                            </button>
+                        </form>
+                        <form action="{{adminPath}}/backups/create" method="POST" class="inline-form">
+                            <button type="submit" class="btn btn-primary" {{if .IsBackingUp}}disabled
+                                style="opacity: 0.6; cursor: not-allowed;" {{end}}>
+                                <i class="fas fa-plus"></i> 创建新备份
+                            </button>
+                        </form>
+                    </div>
+                    <button type="button" id="refreshBackupPanelBtn" class="icon-action-btn" title="刷新备份状态" aria-label="刷新备份状态">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                 </div>
             </header>
 
-            {{if and .SuccessMessage (not .IsBackingUp)}}
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> {{.SuccessMessage}}
-            </div>
-            {{end}}
-
-            {{if .ErrorMessage}}
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-circle"></i> {{.ErrorMessage}}
-            </div>
-            {{end}}
-
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-history"></i> 备份历史列表</h3>
-                </div>
-                {{if .Backups}}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>文件名</th>
-                            <th>大小</th>
-                            <th>创建时间</th>
-                            <th style="text-align: right;">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {{range .Backups}}
-                        <tr>
-                            <td
-                                style="font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; color: #475569;">
-                                {{.Name}}</td>
-                            <td>{{.Size}}</td>
-                            <td>{{.Time}}</td>
-                            <td style="text-align: right;">
-                                <div class="action-group">
-                                    <form action="{{adminPath}}/backups/delete/{{.Name}}" method="POST" class="inline-form"
-                                        onsubmit="return confirm('确定要删除这个备份文件吗？')">
-                                        <button type="submit" class="icon-action-btn delete" title="删除" aria-label="删除">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </tbody>
-                </table>
-                {{else}}
-                <div class="empty-state">
-                    <i class="fas fa-archive"></i>
-                    <p>暂无备份记录，点击上方按钮创建第一个备份吧</p>
+            <div id="backupRuntimePanel">
+                {{if .IsBackingUp}}
+                <div class="alert" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">
+                    <i class="fas fa-spinner fa-spin"></i> 备份任务正在后台运行中，请稍后刷新查看结果...
                 </div>
                 {{end}}
+
+                {{if and .SuccessMessage (not .IsBackingUp)}}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> {{.SuccessMessage}}
+                </div>
+                {{end}}
+
+                {{if .ErrorMessage}}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> {{.ErrorMessage}}
+                </div>
+                {{end}}
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> 备份历史列表</h3>
+                    </div>
+                    {{if .Backups}}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>文件名</th>
+                                <th>大小</th>
+                                <th>创建时间</th>
+                                <th style="text-align: right;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Backups}}
+                            <tr>
+                                <td
+                                    style="font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; color: #475569;">
+                                    {{.Name}}</td>
+                                <td>{{.Size}}</td>
+                                <td>{{.Time}}</td>
+                                <td style="text-align: right;">
+                                    <div class="action-group">
+                                        <form action="{{adminPath}}/backups/delete/{{.Name}}" method="POST" class="inline-form"
+                                            onsubmit="return confirm('确定要删除这个备份文件吗？')">
+                                            <button type="submit" class="icon-action-btn delete" title="删除" aria-label="删除">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                    {{else}}
+                    <div class="empty-state">
+                        <i class="fas fa-archive"></i>
+                        <p>暂无备份记录，点击上方按钮创建第一个备份吧</p>
+                    </div>
+                    {{end}}
+                </div>
             </div>
 
             <div
@@ -521,6 +533,47 @@
             </div>
         </div>
     </div>
+    <script>
+        (() => {
+            const refreshBtn = document.getElementById('refreshBackupPanelBtn');
+            if (!refreshBtn) return;
+
+            let isRefreshing = false;
+            refreshBtn.addEventListener('click', async () => {
+                if (isRefreshing) return;
+                isRefreshing = true;
+                refreshBtn.disabled = true;
+
+                const icon = refreshBtn.querySelector('i');
+                if (icon) icon.classList.add('fa-spin');
+
+                try {
+                    const res = await fetch(window.location.href, {
+                        credentials: 'same-origin',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    if (!res.ok) {
+                        throw new Error('refresh failed');
+                    }
+
+                    const html = await res.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const nextPanel = doc.getElementById('backupRuntimePanel');
+                    const currentPanel = document.getElementById('backupRuntimePanel');
+
+                    if (nextPanel && currentPanel) {
+                        currentPanel.replaceWith(nextPanel);
+                    }
+                } catch (e) {
+                    alert('刷新失败，请稍后重试。');
+                } finally {
+                    if (icon) icon.classList.remove('fa-spin');
+                    refreshBtn.disabled = false;
+                    isRefreshing = false;
+                }
+            });
+        })();
+    </script>
 </body>
 
 </html>
