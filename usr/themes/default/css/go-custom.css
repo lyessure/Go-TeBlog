@@ -2,8 +2,8 @@
     padding: 1.2em 0 !important;
     line-height: 1.5;
     text-align: center;
-    color: #9ca3af;
-    border-top: 1px solid #c5c9d1;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-light);
     margin-top: 10px;
 }
 
@@ -13,7 +13,7 @@
 }
 
 .go-badge {
-    background: #4b5563;
+    background: var(--bg-accent);
     color: white;
     padding: 2px 6px;
     border-radius: 4px;
@@ -27,5 +27,5 @@
 
 .author-name {
     font-weight: 600;
-    color: #1f2937;
+    color: var(--text-primary);
 }

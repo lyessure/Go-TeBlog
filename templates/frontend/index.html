@@ -5,6 +5,20 @@
     <meta charset="UTF-8">
     <meta name="renderer" content="webkit">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <script>
+        (function () {
+            try {
+                var mode = localStorage.getItem('blog-theme-mode') || 'light';
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var theme = mode === 'dark' ? 'dark' : (mode === 'light' ? 'light' : (prefersDark ? 'dark' : 'light'));
+                document.documentElement.setAttribute('data-theme-mode', mode);
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme-mode', 'light');
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     {{if .Site.Description}}
     <meta name="description" content="{{.Site.Description}}">{{end}}
     <title>{{if .SearchQuery}}包含关键字 {{.SearchQuery}} 的文章 - {{end}}{{.Site.Title}}</title>
@@ -40,13 +54,20 @@
                     <span class="hamburger"></span>
                 </button>
             </div>
-            <nav id="nav-menu" class="clearfix" role="navigation">
-                <a{{if eq .CurrentSlug "" }} class="current" {{end}} href="/blog">博客首页</a>
-                    {{range .Categories}}
-                    <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink .}}"
-                        title="{{.Name}}">{{.Name}}</a>
-                        {{end}}
-            </nav>
+            <div class="header-nav-row">
+                <nav id="nav-menu" class="clearfix" role="navigation">
+                    <a{{if eq .CurrentSlug "" }} class="current" {{end}} href="/blog">博客首页</a>
+                        {{range .Categories}}
+                        <a{{if eq $.CurrentSlug .Slug}} class="current" {{end}} href="{{catPermalink .}}"
+                            title="{{.Name}}">{{.Name}}</a>
+                            {{end}}
+                </nav>
+                <div class="nav-theme">
+                    <button type="button" class="theme-mode-cycle" aria-label="显示模式" title="显示模式">
+                        <i class="fas fa-sun" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -182,6 +203,7 @@
     </footer>
 
     <script src="/blog/usr/themes/default/js/mobile-nav.js"></script>
+    <script src="/blog/usr/themes/default/js/theme-mode.js"></script>
     {{.Site.FooterCode}}
 </body>
 
