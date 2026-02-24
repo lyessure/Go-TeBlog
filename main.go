@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -399,6 +400,44 @@ func handleBeacon(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// fixAttachmentLinks 将 HTML 内容中的绝对路径附件/图片链接转换为相对路径
+// 这是一个为 Typecho 移植而设计的容错措施
+func fixAttachmentLinks(htmlContent string) string {
+	re := regexp.MustCompile(`(src|href)="https?://[^/]+(/[^"]+)"`)
+	return re.ReplaceAllStringFunc(htmlContent, func(match string) string {
+		sub := re.FindStringSubmatch(match)
+		if len(sub) < 3 {
+			return match
+		}
+		attr := sub[1]
+		path := sub[2]
+
+		// 转换逻辑：
+		// 1. 如果路径以 /usr/ 开头（Typecho 默认附件路径）
+		// 2. 如果文件是常见的图片格式，支持迁移后的各种路径
+
+		// 分离路径和查询参数以进行后缀检查
+		purePath := path
+		if idx := strings.Index(path, "?"); idx != -1 {
+			purePath = path[:idx]
+		}
+
+		lowerPath := strings.ToLower(purePath)
+		isImg := strings.HasSuffix(lowerPath, ".jpg") ||
+			strings.HasSuffix(lowerPath, ".jpeg") ||
+			strings.HasSuffix(lowerPath, ".png") ||
+			strings.HasSuffix(lowerPath, ".gif") ||
+			strings.HasSuffix(lowerPath, ".webp") ||
+			strings.HasSuffix(lowerPath, ".svg")
+
+		if strings.HasPrefix(path, "/usr/") || isImg {
+			return fmt.Sprintf("%s=\"%s\"", attr, path)
+		}
+
+		return match
+	})
+}
+
 func main() {
 	// Get executable path and change to its directory
 	exePath, err := os.Executable()
@@ -578,7 +617,7 @@ func main() {
 				return template.HTML(excerpt)
 			}
 
-			htmlContent := buf.String()
+			htmlContent := fixAttachmentLinks(buf.String())
 
 			// If <!--more--> was found, append the "Read more" link
 			if len(parts) > 1 {
@@ -594,7 +633,7 @@ func main() {
 			if err := mdRenderer.Convert([]byte(content), &buf); err != nil {
 				return template.HTML(content)
 			}
-			return template.HTML(buf.String())
+			return template.HTML(fixAttachmentLinks(buf.String()))
 		},
 		"permalink": func(p Post) string {
 			// Typecho default permalink: index.php/archives/{cid}/
