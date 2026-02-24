@@ -36,6 +36,67 @@ type statsLog struct {
 var statsChan chan statsLog
 var statsWG sync.WaitGroup
 
+type commentAttemptLimiter struct {
+	mu       sync.Mutex
+	byIP     map[string][]int64
+	lastSeen map[string]int64
+	all      []int64
+	request  int64
+}
+
+var commentLimiter = &commentAttemptLimiter{
+	byIP:     make(map[string][]int64),
+	lastSeen: make(map[string]int64),
+}
+
+func (l *commentAttemptLimiter) addAndCount(ip string, now int64) (int, int) {
+	windowCutoff := now - 60
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.request++
+
+	globalKept := l.all[:0]
+	for _, ts := range l.all {
+		if ts > windowCutoff {
+			globalKept = append(globalKept, ts)
+		}
+	}
+	l.all = append(globalKept, now)
+
+	ipEvents := l.byIP[ip]
+	ipKept := ipEvents[:0]
+	for _, ts := range ipEvents {
+		if ts > windowCutoff {
+			ipKept = append(ipKept, ts)
+		}
+	}
+	ipKept = append(ipKept, now)
+	l.byIP[ip] = ipKept
+	l.lastSeen[ip] = now
+
+	// Periodically prune expired IP keys to avoid unbounded map growth.
+	if l.request%64 == 0 {
+		keyCutoff := now - 600
+		for key, events := range l.byIP {
+			kept := events[:0]
+			for _, ts := range events {
+				if ts > windowCutoff {
+					kept = append(kept, ts)
+				}
+			}
+			if len(kept) == 0 && l.lastSeen[key] <= keyCutoff {
+				delete(l.byIP, key)
+				delete(l.lastSeen, key)
+			} else {
+				l.byIP[key] = kept
+			}
+		}
+	}
+
+	return len(ipKept), len(l.all)
+}
+
 func startStatsWorker(db *sql.DB) {
 	statsWG.Add(1)
 	defer statsWG.Done()
@@ -716,13 +777,11 @@ func main() {
 
 		ip := c.ClientIP()
 		now := time.Now().Unix()
-		oneMinuteAgo := now - 60
+		countIP, countGlobal := commentLimiter.addAndCount(ip, now)
 
 		// 1. IP Rate Limit Check
 		limitIP := getOptionInt(db, "commentLimitIP", 1)
-		var countIP int
-		db.QueryRow("SELECT COUNT(*) FROM typecho_comments WHERE ip=? AND created > ?", ip, oneMinuteAgo).Scan(&countIP)
-		if countIP >= limitIP {
+		if countIP > limitIP {
 			site := getSiteInfo(db)
 			c.HTML(http.StatusTooManyRequests, "error.html", gin.H{
 				"Site":         site,
@@ -734,9 +793,7 @@ func main() {
 
 		// 2. Global Rate Limit Check
 		limitGlobal := getOptionInt(db, "commentLimitGlobal", 2)
-		var countGlobal int
-		db.QueryRow("SELECT COUNT(*) FROM typecho_comments WHERE created > ?", oneMinuteAgo).Scan(&countGlobal)
-		if countGlobal >= limitGlobal {
+		if countGlobal > limitGlobal {
 			site := getSiteInfo(db)
 			c.HTML(http.StatusTooManyRequests, "error.html", gin.H{
 				"Site":         site,
