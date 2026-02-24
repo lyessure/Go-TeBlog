@@ -193,7 +193,7 @@ sudo bash build.sh
 ## 🙏 致谢
 
 - 感谢 [Typecho](https://typecho.org/) 提供的设计灵感
-- 感谢 [Claude](https://www.anthropic.com/claude) (Anthropic) 和 [Gemini](https://deepmind.google/technologies/gemini/) (Google DeepMind) 提供的 AI 能力支持
+- 感谢 [Claude](https://www.anthropic.com/claude) (Anthropic)、[Gemini](https://deepmind.google/technologies/gemini/) (Google DeepMind) 和 [OpenAI codex](https://openai.com/blog/openai-codex) 提供的 AI 能力支持
 
 ### 🤖 AI 驱动开发
 
