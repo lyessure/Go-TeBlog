@@ -600,8 +600,16 @@ func main() {
 			apiKey = "********************************"
 		}
 		cfApiToken := getOption(db, "cfApiToken", "")
+		cfAuthEmail := getOption(db, "cfAuthEmail", "")
+		cfZoneID := getOption(db, "cfZoneID", "")
 		if group == "visitor" && cfApiToken != "" {
 			cfApiToken = "********************************"
+		}
+		if group == "visitor" && cfAuthEmail != "" {
+			cfAuthEmail = "********************************"
+		}
+		if group == "visitor" && cfZoneID != "" {
+			cfZoneID = "********************************"
 		}
 		cfEnvConnected := isCloudflareRequest(c)
 		cfEnvStatus := "当前未接入 Cloudflare"
@@ -637,8 +645,8 @@ func main() {
 			"CommentsEnabled":            getOption(db, "commentsEnabled", "1"),
 			"CfRequestLimitPerMinute":    getOption(db, "cfRequestLimitPerMinute", "1000"),
 			"CfApiToken":                 cfApiToken,
-			"CfAuthEmail":                getOption(db, "cfAuthEmail", ""),
-			"CfZoneID":                   getOption(db, "cfZoneID", ""),
+			"CfAuthEmail":                cfAuthEmail,
+			"CfZoneID":                   cfZoneID,
 			"CfRestoreSecurityLevel":     getOption(db, "cfRestoreSecurityLevel", "medium"),
 			"CfShieldAutoDisableMinutes": getOption(db, "cfShieldAutoDisableMinutes", "30"),
 			"CfEnvConnected":             cfEnvConnected,
