@@ -256,6 +256,8 @@ func main() {
 			timeout := getOptionInt(db, "sessionTimeout", 30) * 60
 			// Cleanup old sessions
 			db.Exec("DELETE FROM go_sessions WHERE created_at < ?", time.Now().Unix()-int64(timeout))
+			// 单点登录：清理该账号已有会话，确保新登录踢出旧登录
+			db.Exec("DELETE FROM go_sessions WHERE username = ?", username)
 
 			// 更新最后登录时间
 			db.Exec("UPDATE typecho_users SET logged = ? WHERE name = ?", time.Now().Unix(), username)
