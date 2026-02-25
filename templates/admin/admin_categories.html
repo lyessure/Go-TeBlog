@@ -95,9 +95,6 @@
             margin-left: 240px;
             min-height: 100vh;
             box-sizing: border-box;
-            display: flex;
-            gap: 30px;
-            align-items: flex-start;
             padding-top: 100px;
         }
 
@@ -185,18 +182,11 @@
             flex: 2;
         }
 
-        .form-container,
         .table-card {
             background: white;
             padding: 25px;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-
-        .form-container {
-            flex: 1;
-            position: sticky;
-            top: 80px;
         }
 
         h2 {
@@ -290,15 +280,6 @@
             background: #fff1f2;
             border-color: #fecdd3;
             color: #9f1239;
-        }
-
-        .btn-submit {
-            background: #10b981;
-            color: white;
-            width: 100%;
-            margin-top: 20px;
-            padding: 12px;
-            font-size: 14px;
         }
 
         .form-group {
@@ -417,6 +398,126 @@
             border-color: #0984e3;
             font-weight: 600;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: #1f2937;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .btn-cancel {
+            background: #f3f4f6;
+            color: #4b5563;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-cancel:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-submit-modal {
+            background: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-submit-modal:hover {
+            background: #059669;
+        }
     </style>
 </head>
 
@@ -470,6 +571,12 @@
         </div>
         <div class="list-container table-card">
             <h2>分类列表</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div></div>
+                <button type="button" class="btn" onclick="openAddModal()" style="background: #10b981; color: white; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-plus"></i> 添加分类
+                </button>
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -550,39 +657,61 @@
             {{end}}
         </div>
 
-        <div class="form-container">
-            <h2 id="form-title">添加分类</h2>
-            <form action="{{adminPath}}/category/save" method="POST">
-                <input type="hidden" name="mid" id="field-mid" value="0">
-                <div class="form-group">
-                    <label>分类名称</label>
-                    <input type="text" name="name" id="field-name" required placeholder="例如：生活随记">
+        <!-- Modal for Add/Edit Category -->
+        <div class="modal-overlay" id="category-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-title">添加分类</h2>
+                    <button type="button" class="modal-close" onclick="closeModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label>分类缩略名</label>
-                    <input type="text" name="slug" id="field-slug" required placeholder="例如：life">
-                </div>
-                <div class="form-group">
-                    <label>显示序号 (数字越小越靠前)</label>
-                    <input type="number" name="order" id="field-order" value="0" min="0">
-                </div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
-                    <input type="checkbox" name="showOnHome" id="field-showOnHome" value="1" checked
-                        style="width: auto;">
-                    <label for="field-showOnHome" style="margin-bottom: 0;">允许出现在首页</label>
-                </div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                    <input type="checkbox" name="isOffline" id="field-isOffline" value="1" style="width: auto;">
-                    <label for="field-isOffline" style="margin-bottom: 0; color: #ef4444;">下线该分类（全站隐藏并禁止访问）</label>
-                </div>
-                <button type="submit" class="btn btn-submit">保存分类</button>
-                <button type="button" class="btn" style="width:100%; margin-top:10px; background:#9ca3af; color:white"
-                    onclick="resetForm()">取消编辑</button>
-            </form>
+                <form id="category-form" onsubmit="submitForm(event)">
+                    <input type="hidden" name="mid" id="modal-field-mid" value="0">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label>分类名称</label>
+                            <input type="text" name="name" id="modal-field-name" required placeholder="例如：生活随记">
+                        </div>
+                        <div class="form-group">
+                            <label>分类缩略名</label>
+                            <input type="text" name="slug" id="modal-field-slug" required placeholder="例如：life">
+                        </div>
+                        <div class="form-group">
+                            <label>显示序号 (数字越小越靠前)</label>
+                            <input type="number" name="order" id="modal-field-order" value="0" min="0">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                            <input type="checkbox" name="showOnHome" id="modal-field-showOnHome" value="1" checked
+                                style="width: auto;">
+                            <label for="modal-field-showOnHome" style="margin-bottom: 0;">允许出现在首页</label>
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                            <input type="checkbox" name="isOffline" id="modal-field-isOffline" value="1" style="width: auto;">
+                            <label for="modal-field-isOffline" style="margin-bottom: 0; color: #ef4444;">下线该分类（全站隐藏并禁止访问）</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
+                        <button type="submit" class="btn-submit-modal">保存分类</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
     <script>
+        function openAddModal() {
+            document.getElementById('modal-title').innerText = '添加分类';
+            document.getElementById('modal-field-mid').value = '0';
+            document.getElementById('modal-field-name').value = '';
+            document.getElementById('modal-field-slug').value = '';
+            document.getElementById('modal-field-order').value = '0';
+            document.getElementById('modal-field-showOnHome').checked = true;
+            document.getElementById('modal-field-isOffline').checked = false;
+            document.getElementById('category-modal').classList.add('active');
+        }
+
         function editCategoryBtn(btn) {
             const mid = btn.getAttribute('data-mid');
             const name = btn.getAttribute('data-name');
@@ -591,23 +720,60 @@
             const showOnHome = btn.getAttribute('data-show') === '1';
             const isOffline = btn.getAttribute('data-offline') === '1';
 
-            document.getElementById('form-title').innerText = '编辑分类';
-            document.getElementById('field-mid').value = mid;
-            document.getElementById('field-name').value = name;
-            document.getElementById('field-slug').value = slug;
-            document.getElementById('field-order').value = order;
-            document.getElementById('field-showOnHome').checked = showOnHome;
-            document.getElementById('field-isOffline').checked = isOffline;
+            document.getElementById('modal-title').innerText = '编辑分类';
+            document.getElementById('modal-field-mid').value = mid;
+            document.getElementById('modal-field-name').value = name;
+            document.getElementById('modal-field-slug').value = slug;
+            document.getElementById('modal-field-order').value = order;
+            document.getElementById('modal-field-showOnHome').checked = showOnHome;
+            document.getElementById('modal-field-isOffline').checked = isOffline;
+            document.getElementById('category-modal').classList.add('active');
         }
 
-        function resetForm() {
-            document.getElementById('form-title').innerText = '添加分类';
-            document.getElementById('field-mid').value = '0';
-            document.getElementById('field-name').value = '';
-            document.getElementById('field-slug').value = '';
-            document.getElementById('field-order').value = '0';
-            document.getElementById('field-showOnHome').checked = true;
-            document.getElementById('field-isOffline').checked = false;
+        function closeModal() {
+            document.getElementById('category-modal').classList.remove('active');
+        }
+
+        // Close modal when clicking on overlay
+        document.getElementById('category-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        function submitForm(event) {
+            event.preventDefault();
+            const form = document.getElementById('category-form');
+            const formData = new FormData(form);
+            const mid = document.getElementById('modal-field-mid').value;
+
+            fetch('{{adminPath}}/category/save', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('保存失败');
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    closeModal();
+                    // Reload page to show updated data
+                    window.location.reload();
+                } else {
+                    alert(data.message || '保存失败，请重试');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('网络错误，请重试');
+            });
         }
 
         // Drag and Drop Logic

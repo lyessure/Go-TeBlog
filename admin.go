@@ -1085,10 +1085,18 @@ func main() {
 		showOnHome := c.DefaultPostForm("showOnHome", "0")
 		isOffline := c.DefaultPostForm("isOffline", "0")
 
+		// Check if this is an AJAX request
+		isAjax := c.GetHeader("X-Requested-With") == "XMLHttpRequest" ||
+			strings.Contains(c.GetHeader("Accept"), "application/json")
+
 		if midStr == "" || midStr == "0" {
 			res, err := db.Exec("INSERT INTO typecho_metas (name, slug, type, description, count, \"order\", parent) VALUES (?, ?, 'category', '', 0, ?, 0)", name, slug, order)
 			if err != nil {
-				c.String(500, err.Error())
+				if isAjax {
+					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+				} else {
+					c.String(500, err.Error())
+				}
 				return
 			}
 			lastId, _ := res.LastInsertId()
@@ -1096,12 +1104,21 @@ func main() {
 		} else {
 			_, err := db.Exec("UPDATE typecho_metas SET name=?, slug=?, \"order\"=? WHERE mid=?", name, slug, order, midStr)
 			if err != nil {
-				c.String(500, err.Error())
+				if isAjax {
+					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+				} else {
+					c.String(500, err.Error())
+				}
 				return
 			}
 			db.Exec("INSERT INTO go_category_settings (mid, show_on_home, is_offline) VALUES (?, ?, ?) ON CONFLICT(mid) DO UPDATE SET show_on_home=excluded.show_on_home, is_offline=excluded.is_offline", midStr, showOnHome, isOffline)
 		}
-		c.Redirect(http.StatusFound, ""+adminPath+"/categories")
+
+		if isAjax {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "保存成功"})
+		} else {
+			c.Redirect(http.StatusFound, ""+adminPath+"/categories")
+		}
 	})
 
 	admin.POST("/category/reorder", writeProtectMiddleware, func(c *gin.Context) {
