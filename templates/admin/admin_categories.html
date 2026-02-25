@@ -592,8 +592,8 @@
                 </thead>
                 <tbody id="category-table-body">
                     {{range .Categories}}
-                    <tr draggable="true" data-mid="{{.Mid}}">
-                        <td class="drag-handle"><i class="fas fa-grip-lines"></i></td>
+                    <tr data-mid="{{.Mid}}">
+                        <td class="drag-handle" draggable="true"><i class="fas fa-grip-lines"></i></td>
                         <td class="order-cell" style="font-weight: 600; color: #636e72;">{{.Order}}</td>
                         <td class="cat-name">{{.Name}}</td>
                         <td>{{.Slug}}</td>
@@ -781,10 +781,17 @@
         let dragSrcEl = null;
 
         function handleDragStart(e) {
-            this.classList.add('dragging');
-            dragSrcEl = this;
+            // e.target is the drag-handle td, find the parent tr
+            const handle = e.target.closest('.drag-handle');
+            if (!handle) return;
+            
+            const row = handle.closest('tr');
+            if (!row) return;
+            
+            row.classList.add('dragging');
+            dragSrcEl = row;
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', this.innerHTML);
+            e.dataTransfer.setData('text/html', row.innerHTML);
         }
 
         function handleDragOver(e) {
@@ -802,8 +809,10 @@
         }
 
         function handleDragEnd(e) {
-            this.classList.remove('dragging');
-            updateOrders();
+            if (dragSrcEl) {
+                dragSrcEl.classList.remove('dragging');
+                updateOrders();
+            }
         }
 
         function updateOrders() {
@@ -847,12 +856,14 @@
         }
 
         function initDraggable() {
-            const rows = tbody.querySelectorAll('tr');
-            rows.forEach(row => {
-                row.addEventListener('dragstart', handleDragStart, false);
-                row.addEventListener('dragover', handleDragOver, false);
-                row.addEventListener('dragend', handleDragEnd, false);
+            const handles = tbody.querySelectorAll('.drag-handle');
+            handles.forEach(handle => {
+                handle.addEventListener('dragstart', handleDragStart, false);
+                handle.addEventListener('dragend', handleDragEnd, false);
             });
+            
+            // dragover is on tbody for drop target detection
+            tbody.addEventListener('dragover', handleDragOver, false);
         }
 
         initDraggable();
