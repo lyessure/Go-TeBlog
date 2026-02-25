@@ -456,37 +456,55 @@ func main() {
 			sysLoad = "不支持 (Linux)"
 		}
 
+		cfShieldActive := getOption(db, "cfShieldActive", "0") == "1"
+		cfShieldStatus := "关闭"
+		cfShieldUntil := "未开启"
+		if cfShieldActive {
+			cfShieldStatus = "已开启"
+			untilUnix, err := strconv.ParseInt(strings.TrimSpace(getOption(db, "cfShieldUntil", "0")), 10, 64)
+			if err == nil && untilUnix > 0 {
+				cfShieldUntil = time.Unix(untilUnix, 0).Format("2006-01-02 15:04:05")
+			} else {
+				cfShieldUntil = "已开启（未获取到关闭时间）"
+			}
+		}
+
 		c.HTML(http.StatusOK, "admin_dashboard.html", gin.H{
-			"Username":         username,
-			"UserGroup":        group,
-			"Tab":              "dashboard",
-			"AdminPath":        adminPath,
-			"PostCount":        postCount,
-			"CommentCount":     commentCount,
-			"WeekPostCount":    weekPostCount,
-			"WeekCommentCount": weekCommentCount,
-			"CategoryCount":    categoryCount,
-			"AttachmentCount":  attachmentCount,
-			"TodayPV":          todayPV,
-			"TodayIP":          todayHumanIP,
-			"TodayBotIP":       todayBotIP,
-			"TotalPV":          totalHumanPV,
-			"TotalIP":          totalHumanIP,
-			"TodayBotPV":       todayBotPV,
-			"TotalBotPV":       totalBotPV,
-			"TotalBotIP":       totalBotIP,
-			"RetentionLabel":   retentionLabel,
-			"DbSize":           dbSize,
-			"MemUsed":          memUsed,
-			"GoVersion":        runtime.Version(),
-			"OS":               runtime.GOOS,
-			"Arch":             runtime.GOARCH,
-			"CPUs":             runtime.NumCPU(),
-			"TotalMem":         totalMem,
-			"UploadSize":       fmt.Sprintf("%.2f MB", getDirSize("usr/uploads")),
-			"BackupSize":       fmt.Sprintf("%.2f MB", getDirSize("backups")),
-			"DiskFree":         diskFree,
-			"SysLoad":          sysLoad,
+			"Username":             username,
+			"UserGroup":            group,
+			"Tab":                  "dashboard",
+			"AdminPath":            adminPath,
+			"PostCount":            postCount,
+			"CommentCount":         commentCount,
+			"WeekPostCount":        weekPostCount,
+			"WeekCommentCount":     weekCommentCount,
+			"CategoryCount":        categoryCount,
+			"AttachmentCount":      attachmentCount,
+			"TodayPV":              todayPV,
+			"TodayIP":              todayHumanIP,
+			"TodayBotIP":           todayBotIP,
+			"TotalPV":              totalHumanPV,
+			"TotalIP":              totalHumanIP,
+			"TodayBotPV":           todayBotPV,
+			"TotalBotPV":           totalBotPV,
+			"TotalBotIP":           totalBotIP,
+			"RetentionLabel":       retentionLabel,
+			"DbSize":               dbSize,
+			"MemUsed":              memUsed,
+			"GoVersion":            runtime.Version(),
+			"OS":                   runtime.GOOS,
+			"Arch":                 runtime.GOARCH,
+			"CPUs":                 runtime.NumCPU(),
+			"TotalMem":             totalMem,
+			"UploadSize":           fmt.Sprintf("%.2f MB", getDirSize("usr/uploads")),
+			"BackupSize":           fmt.Sprintf("%.2f MB", getDirSize("backups")),
+			"DiskFree":             diskFree,
+			"SysLoad":              sysLoad,
+			"CfShieldActive":       cfShieldActive,
+			"CfShieldStatus":       cfShieldStatus,
+			"CfShieldUntil":        cfShieldUntil,
+			"CfMinuteLimit":        getOption(db, "cfRequestLimitPerMinute", "1000"),
+			"CfAutoDisableMinutes": getOption(db, "cfShieldAutoDisableMinutes", "30"),
 		})
 	})
 
@@ -581,34 +599,51 @@ func main() {
 		if group == "visitor" && apiKey != "" {
 			apiKey = "********************************"
 		}
+		cfApiToken := getOption(db, "cfApiToken", "")
+		if group == "visitor" && cfApiToken != "" {
+			cfApiToken = "********************************"
+		}
+		cfEnvConnected := isCloudflareRequest(c)
+		cfEnvStatus := "当前未接入 Cloudflare"
+		if cfEnvConnected {
+			cfEnvStatus = "当前已接入 Cloudflare"
+		}
 
 		c.HTML(http.StatusOK, "admin_settings.html", gin.H{
-			"Username":           username,
-			"Tab":                "settings",
-			"AdminPath":          adminPath,
-			"SiteTitle":          getOption(db, "title", "我的博客"),
-			"SiteDescription":    getOption(db, "description", "基于 Go 语言的极速博客系统"),
-			"SiteUrl":            getOption(db, "siteUrl", "http://localhost:8190"),
-			"Timezone":           normalizeTimezoneOption(getOption(db, "timezone", "Asia/Shanghai")),
-			"ConfigAdminPath":    getOption(db, "adminPath", "admin"),
-			"AiThreshold":        getOption(db, "aiThreshold", "5"),
-			"SessionTimeout":     getOption(db, "sessionTimeout", "30"),
-			"SiteKeywords":       getOption(db, "keywords", ""),
-			"FooterCode":         getOption(db, "footerCode", ""),
-			"PageSize":           getOption(db, "pageSize", "10"),
-			"RecentPostsSize":    getOption(db, "recentPostsSize", "15"),
-			"RecentCommentsSize": getOption(db, "recentCommentsSize", "10"),
-			"GrokApiKey":         apiKey,
-			"AiApiUrl":           getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"),
-			"AiModel":            getOption(db, "aiModel", "llama-3.3-70b-versatile"),
-			"DefaultCategory":    getOption(db, "defaultCategory", "1"),
-			"CommentAudit":       getOption(db, "commentAudit", "0"),
-			"StatsBufferSize":    getOption(db, "statsBufferSize", "100"),
-			"LogRetentionDays":   getOption(db, "logRetentionDays", "30"),
-			"CommentLimitIP":     getOption(db, "commentLimitIP", "1"),
-			"CommentLimitGlobal": getOption(db, "commentLimitGlobal", "2"),
-			"CommentsEnabled":    getOption(db, "commentsEnabled", "1"),
-			"AllCategories":      categories,
+			"Username":                   username,
+			"Tab":                        "settings",
+			"AdminPath":                  adminPath,
+			"SiteTitle":                  getOption(db, "title", "我的博客"),
+			"SiteDescription":            getOption(db, "description", "基于 Go 语言的极速博客系统"),
+			"SiteUrl":                    getOption(db, "siteUrl", "http://localhost:8190"),
+			"Timezone":                   normalizeTimezoneOption(getOption(db, "timezone", "Asia/Shanghai")),
+			"ConfigAdminPath":            getOption(db, "adminPath", "admin"),
+			"AiThreshold":                getOption(db, "aiThreshold", "5"),
+			"SessionTimeout":             getOption(db, "sessionTimeout", "30"),
+			"SiteKeywords":               getOption(db, "keywords", ""),
+			"FooterCode":                 getOption(db, "footerCode", ""),
+			"PageSize":                   getOption(db, "pageSize", "10"),
+			"RecentPostsSize":            getOption(db, "recentPostsSize", "15"),
+			"RecentCommentsSize":         getOption(db, "recentCommentsSize", "10"),
+			"GrokApiKey":                 apiKey,
+			"AiApiUrl":                   getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"),
+			"AiModel":                    getOption(db, "aiModel", "llama-3.3-70b-versatile"),
+			"DefaultCategory":            getOption(db, "defaultCategory", "1"),
+			"CommentAudit":               getOption(db, "commentAudit", "0"),
+			"StatsBufferSize":            getOption(db, "statsBufferSize", "100"),
+			"LogRetentionDays":           getOption(db, "logRetentionDays", "30"),
+			"CommentLimitIP":             getOption(db, "commentLimitIP", "1"),
+			"CommentLimitGlobal":         getOption(db, "commentLimitGlobal", "2"),
+			"CommentsEnabled":            getOption(db, "commentsEnabled", "1"),
+			"CfRequestLimitPerMinute":    getOption(db, "cfRequestLimitPerMinute", "1000"),
+			"CfApiToken":                 cfApiToken,
+			"CfAuthEmail":                getOption(db, "cfAuthEmail", ""),
+			"CfZoneID":                   getOption(db, "cfZoneID", ""),
+			"CfRestoreSecurityLevel":     getOption(db, "cfRestoreSecurityLevel", "medium"),
+			"CfShieldAutoDisableMinutes": getOption(db, "cfShieldAutoDisableMinutes", "30"),
+			"CfEnvConnected":             cfEnvConnected,
+			"CfEnvStatus":                cfEnvStatus,
+			"AllCategories":              categories,
 		})
 	})
 
@@ -637,6 +672,21 @@ func main() {
 		commentLimitIP := c.PostForm("commentLimitIP")
 		commentLimitGlobal := c.PostForm("commentLimitGlobal")
 		commentsEnabled := c.DefaultPostForm("commentsEnabled", "0")
+		cfRequestLimitPerMinute := strings.TrimSpace(c.PostForm("cfRequestLimitPerMinute"))
+		cfApiToken := strings.TrimSpace(c.PostForm("cfApiToken"))
+		cfAuthEmail := strings.TrimSpace(c.PostForm("cfAuthEmail"))
+		cfZoneID := strings.TrimSpace(c.PostForm("cfZoneID"))
+		cfRestoreSecurityLevel := strings.TrimSpace(c.PostForm("cfRestoreSecurityLevel"))
+		cfShieldAutoDisableMinutes := strings.TrimSpace(c.PostForm("cfShieldAutoDisableMinutes"))
+		if cfRequestLimitPerMinute == "" {
+			cfRequestLimitPerMinute = "1000"
+		}
+		if cfRestoreSecurityLevel == "" {
+			cfRestoreSecurityLevel = "medium"
+		}
+		if cfShieldAutoDisableMinutes == "" {
+			cfShieldAutoDisableMinutes = "30"
+		}
 
 		setOption(db, "title", title)
 		setOption(db, "description", description)
@@ -661,6 +711,12 @@ func main() {
 		setOption(db, "commentLimitIP", commentLimitIP)
 		setOption(db, "commentLimitGlobal", commentLimitGlobal)
 		setOption(db, "commentsEnabled", commentsEnabled)
+		setOption(db, "cfRequestLimitPerMinute", cfRequestLimitPerMinute)
+		setOption(db, "cfApiToken", cfApiToken)
+		setOption(db, "cfAuthEmail", cfAuthEmail)
+		setOption(db, "cfZoneID", cfZoneID)
+		setOption(db, "cfRestoreSecurityLevel", cfRestoreSecurityLevel)
+		setOption(db, "cfShieldAutoDisableMinutes", cfShieldAutoDisableMinutes)
 		applyConfiguredTimezone(db)
 
 		successMsg := "设置保存成功"
@@ -682,35 +738,48 @@ func main() {
 				})
 			}
 		}
+		cfEnvConnected := isCloudflareRequest(c)
+		cfEnvStatus := "当前未接入 Cloudflare"
+		if cfEnvConnected {
+			cfEnvStatus = "当前已接入 Cloudflare"
+		}
 
 		c.HTML(http.StatusOK, "admin_settings.html", gin.H{
-			"Username":           username,
-			"Tab":                "settings",
-			"AdminPath":          curAdminPath,
-			"SiteTitle":          title,
-			"SiteDescription":    description,
-			"PageSize":           pageSize,
-			"RecentPostsSize":    recentPostsSize,
-			"RecentCommentsSize": recentCommentsSize,
-			"GrokApiKey":         grokApiKey,
-			"AiApiUrl":           aiApiUrl,
-			"AiModel":            aiModel,
-			"AiThreshold":        aiThreshold,
-			"SessionTimeout":     sessionTimeout,
-			"SiteKeywords":       keywords,
-			"FooterCode":         footerCode,
-			"DefaultCategory":    defaultCategory,
-			"SiteUrl":            siteUrl,
-			"Timezone":           timezone,
-			"ConfigAdminPath":    newAdminPath,
-			"CommentAudit":       commentAudit,
-			"StatsBufferSize":    statsBufferSize,
-			"LogRetentionDays":   logRetentionDays,
-			"CommentLimitIP":     commentLimitIP,
-			"CommentLimitGlobal": commentLimitGlobal,
-			"CommentsEnabled":    commentsEnabled,
-			"AllCategories":      categories,
-			"SuccessMessage":     successMsg,
+			"Username":                   username,
+			"Tab":                        "settings",
+			"AdminPath":                  curAdminPath,
+			"SiteTitle":                  title,
+			"SiteDescription":            description,
+			"PageSize":                   pageSize,
+			"RecentPostsSize":            recentPostsSize,
+			"RecentCommentsSize":         recentCommentsSize,
+			"GrokApiKey":                 grokApiKey,
+			"AiApiUrl":                   aiApiUrl,
+			"AiModel":                    aiModel,
+			"AiThreshold":                aiThreshold,
+			"SessionTimeout":             sessionTimeout,
+			"SiteKeywords":               keywords,
+			"FooterCode":                 footerCode,
+			"DefaultCategory":            defaultCategory,
+			"SiteUrl":                    siteUrl,
+			"Timezone":                   timezone,
+			"ConfigAdminPath":            newAdminPath,
+			"CommentAudit":               commentAudit,
+			"StatsBufferSize":            statsBufferSize,
+			"LogRetentionDays":           logRetentionDays,
+			"CommentLimitIP":             commentLimitIP,
+			"CommentLimitGlobal":         commentLimitGlobal,
+			"CommentsEnabled":            commentsEnabled,
+			"CfRequestLimitPerMinute":    cfRequestLimitPerMinute,
+			"CfApiToken":                 cfApiToken,
+			"CfAuthEmail":                cfAuthEmail,
+			"CfZoneID":                   cfZoneID,
+			"CfRestoreSecurityLevel":     cfRestoreSecurityLevel,
+			"CfShieldAutoDisableMinutes": cfShieldAutoDisableMinutes,
+			"CfEnvConnected":             cfEnvConnected,
+			"CfEnvStatus":                cfEnvStatus,
+			"AllCategories":              categories,
+			"SuccessMessage":             successMsg,
 		})
 	})
 
@@ -2005,6 +2074,16 @@ func setOption(db *sql.DB, name string, value string) {
 	if err != nil {
 		log.Printf("Error setting option %s: %v", name, err)
 	}
+}
+
+func isCloudflareRequest(c *gin.Context) bool {
+	if strings.TrimSpace(c.GetHeader("CF-Connecting-IP")) != "" {
+		return true
+	}
+	if strings.TrimSpace(c.GetHeader("CF-Ray")) != "" {
+		return true
+	}
+	return false
 }
 
 func cryptPrivate(password string, setting string) string {

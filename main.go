@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -50,6 +51,255 @@ type commentAttemptLimiter struct {
 var commentLimiter = &commentAttemptLimiter{
 	byIP:     make(map[string][]int64),
 	lastSeen: make(map[string]int64),
+}
+
+type cloudflareShieldManager struct {
+	db *sql.DB
+
+	mu               sync.Mutex
+	currentMinuteKey int64
+	currentMinuteCnt int
+	cfgLoadedAt      int64
+	threshold        int
+	apiToken         string
+	authEmail        string
+	zoneID           string
+	restoreLevel     string
+	autoDisableMins  int
+	shieldActive     bool
+	shieldUntil      int64
+	switching        bool
+	failCooldownTill int64
+}
+
+func newCloudflareShieldManager(db *sql.DB) *cloudflareShieldManager {
+	mgr := &cloudflareShieldManager{
+		db:              db,
+		threshold:       1000,
+		restoreLevel:    "medium",
+		autoDisableMins: 30,
+	}
+
+	if getOption(db, "cfShieldActive", "0") == "1" {
+		mgr.shieldActive = true
+	}
+	mgr.shieldUntil = getOptionInt64(db, "cfShieldUntil", 0)
+
+	return mgr
+}
+
+func (m *cloudflareShieldManager) loadConfigLocked(now int64) {
+	// 限制配置读取频率，避免每个请求都查库
+	if now-m.cfgLoadedAt < 10 {
+		return
+	}
+	m.cfgLoadedAt = now
+
+	limit := getOptionInt(m.db, "cfRequestLimitPerMinute", 1000)
+	if limit < 1 {
+		limit = 1000
+	}
+
+	m.threshold = limit
+	m.apiToken = strings.TrimSpace(getOption(m.db, "cfApiToken", ""))
+	m.authEmail = strings.TrimSpace(getOption(m.db, "cfAuthEmail", ""))
+	m.zoneID = strings.TrimSpace(getOption(m.db, "cfZoneID", ""))
+	m.restoreLevel = sanitizeSecurityLevel(getOption(m.db, "cfRestoreSecurityLevel", "medium"))
+	autoDisableMins := getOptionInt(m.db, "cfShieldAutoDisableMinutes", 30)
+	if autoDisableMins < 1 {
+		autoDisableMins = 30
+	}
+	m.autoDisableMins = autoDisableMins
+}
+
+func (m *cloudflareShieldManager) middleware(adminPath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if strings.HasPrefix(path, adminPath) {
+			c.Next()
+			return
+		}
+
+		now := time.Now().Unix()
+		minuteKey := now / 60
+
+		needEnable := false
+
+		m.mu.Lock()
+		m.loadConfigLocked(now)
+		if m.currentMinuteKey != minuteKey {
+			m.currentMinuteKey = minuteKey
+			m.currentMinuteCnt = 0
+		}
+		m.currentMinuteCnt++
+
+		if !m.shieldActive &&
+			!m.switching &&
+			now >= m.failCooldownTill &&
+			m.apiToken != "" &&
+			m.zoneID != "" &&
+			m.currentMinuteCnt > m.threshold {
+			m.switching = true
+			needEnable = true
+		}
+		m.mu.Unlock()
+
+		if needEnable {
+			go m.enableShield()
+		}
+
+		c.Next()
+	}
+}
+
+func (m *cloudflareShieldManager) enableShield() {
+	now := time.Now().Unix()
+
+	m.mu.Lock()
+	m.loadConfigLocked(now)
+	token := m.apiToken
+	authEmail := m.authEmail
+	zoneID := m.zoneID
+	autoDisableMins := m.autoDisableMins
+	if m.shieldActive || token == "" || zoneID == "" {
+		m.switching = false
+		m.mu.Unlock()
+		return
+	}
+	m.mu.Unlock()
+
+	err := updateCloudflareSecurityLevel(token, authEmail, zoneID, "under_attack")
+	if err != nil {
+		m.mu.Lock()
+		m.switching = false
+		m.failCooldownTill = time.Now().Unix() + 300
+		m.mu.Unlock()
+		return
+	}
+
+	expiresAt := time.Now().Add(time.Duration(autoDisableMins) * time.Minute).Unix()
+	setOption(m.db, "cfShieldActive", "1")
+	setOption(m.db, "cfShieldUntil", strconv.FormatInt(expiresAt, 10))
+	setOption(m.db, "cfShieldActivatedAt", strconv.FormatInt(now, 10))
+
+	log.Printf("Cloudflare 五秒盾已开启，预计关闭时间: %s", time.Unix(expiresAt, 0).Format("2006-01-02 15:04:05"))
+
+	m.mu.Lock()
+	m.shieldActive = true
+	m.shieldUntil = expiresAt
+	m.switching = false
+	m.mu.Unlock()
+}
+
+func (m *cloudflareShieldManager) disableShieldIfNeeded() {
+	now := time.Now().Unix()
+
+	m.mu.Lock()
+	m.loadConfigLocked(now)
+	token := m.apiToken
+	authEmail := m.authEmail
+	zoneID := m.zoneID
+	restoreLevel := m.restoreLevel
+	active := m.shieldActive
+	expiresAt := m.shieldUntil
+	switching := m.switching
+	if !active || switching || expiresAt == 0 || now < expiresAt || token == "" || zoneID == "" {
+		m.mu.Unlock()
+		return
+	}
+	m.switching = true
+	m.mu.Unlock()
+
+	err := updateCloudflareSecurityLevel(token, authEmail, zoneID, restoreLevel)
+	if err != nil {
+		m.mu.Lock()
+		m.switching = false
+		m.failCooldownTill = time.Now().Unix() + 300
+		m.mu.Unlock()
+		return
+	}
+
+	setOption(m.db, "cfShieldActive", "0")
+	setOption(m.db, "cfShieldUntil", "0")
+
+	log.Printf("Cloudflare 五秒盾已关闭，恢复等级: %s", restoreLevel)
+
+	m.mu.Lock()
+	m.shieldActive = false
+	m.shieldUntil = 0
+	m.switching = false
+	m.mu.Unlock()
+}
+
+func (m *cloudflareShieldManager) startAutoDisableWorker(stop <-chan struct{}) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.disableShieldIfNeeded()
+		case <-stop:
+			return
+		}
+	}
+}
+
+func sanitizeSecurityLevel(level string) string {
+	switch strings.TrimSpace(strings.ToLower(level)) {
+	case "essentially_off", "low", "medium", "high":
+		return strings.TrimSpace(strings.ToLower(level))
+	default:
+		return "medium"
+	}
+}
+
+func updateCloudflareSecurityLevel(apiToken, authEmail, zoneID, level string) error {
+	payload, _ := json.Marshal(map[string]string{
+		"value": level,
+	})
+
+	endpoint := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/settings/security_level", zoneID)
+	req, err := http.NewRequest(http.MethodPatch, endpoint, bytes.NewBuffer(payload))
+	if err != nil {
+		return fmt.Errorf("构建 Cloudflare 请求失败: %w", err)
+	}
+	if authEmail != "" {
+		req.Header.Set("X-Auth-Email", authEmail)
+		req.Header.Set("X-Auth-Key", apiToken)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+apiToken)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("Cloudflare 请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("Cloudflare 返回状态 %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var apiResp struct {
+		Success bool `json:"success"`
+		Errors  []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &apiResp); err == nil {
+		if !apiResp.Success {
+			if len(apiResp.Errors) > 0 && apiResp.Errors[0].Message != "" {
+				return fmt.Errorf("Cloudflare 返回错误: %s", apiResp.Errors[0].Message)
+			}
+			return fmt.Errorf("Cloudflare 返回失败: %s", strings.TrimSpace(string(body)))
+		}
+	}
+
+	return nil
 }
 
 func (l *commentAttemptLimiter) addAndCount(ip string, now int64) (int, int) {
@@ -483,6 +733,12 @@ func main() {
 	}
 	adminPath = strings.TrimSuffix(adminPath, "/")
 
+	cfShieldManager := newCloudflareShieldManager(db)
+	cfShieldStop := make(chan struct{})
+	go cfShieldManager.startAutoDisableWorker(cfShieldStop)
+
+	// 前台分钟级流量阈值检查，达到阈值时触发 Cloudflare 五秒盾。
+	r.Use(cfShieldManager.middleware(adminPath))
 	// 应用访问统计中间件
 	r.Use(statsMiddleware(db, adminPath))
 	// 应用 Beacon 动态注入中间件 (排除后台)
@@ -1038,6 +1294,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)
 	}
+	close(cfShieldStop)
 
 	// 2. 关闭统计通道并等待数据写完
 	log.Println("Waiting for statistics worker to finish...")
@@ -1259,6 +1516,25 @@ func getOptionInt(db *sql.DB, name string, defaultValue int) int {
 		return defaultValue
 	}
 	return i
+}
+
+func getOptionInt64(db *sql.DB, name string, defaultValue int64) int64 {
+	val := strings.TrimSpace(getOption(db, name, ""))
+	if val == "" {
+		return defaultValue
+	}
+	i, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+	return i
+}
+
+func setOption(db *sql.DB, name string, value string) {
+	_, err := db.Exec("INSERT INTO go_options (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value=excluded.value", name, value)
+	if err != nil {
+		log.Printf("Error setting option %s: %v", name, err)
+	}
 }
 
 func getPost(db *sql.DB, cid int) (Post, bool) {

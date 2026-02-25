@@ -483,6 +483,8 @@
                             <li><span class="info-label">磁盘空间进度</span><span class="info-value">{{.DiskFree}}</span></li>
                             <li><span class="info-label">存储占用</span><span class="info-value">数据库: {{.DbSize}} / 附件:
                                     {{.UploadSize}} / 备份: {{.BackupSize}}</span></li>
+                            <li><span class="info-label">Cloudflare 五秒盾</span><span class="info-value">{{.CfShieldStatus}}
+                                    {{if .CfShieldActive}}(自动关闭: {{.CfShieldUntil}}){{end}}</span></li>
                         </ul>
                     </div>
                 </div>

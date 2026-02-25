@@ -428,7 +428,7 @@
                         <i class="fas fa-info-circle"></i>
                         <h3>基础信息</h3>
                     </div>
-                    <div class="section-body">
+                    <div class="section-body" style="padding-top: 14px;">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>站点标题</label>
@@ -510,6 +510,57 @@
                                 <span class="label-desc">过期自动清理。0 为不清理。</span>
                                 <input type="number" name="logRetentionDays" value="{{.LogRetentionDays}}" required
                                     min="0" max="365">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 访问防护 -->
+                <div class="settings-section">
+                    <div class="section-header" style="padding-top: 12px; padding-bottom: 12px;">
+                        <i class="fas fa-cloud"></i>
+                        <h3>访问防护（Cloudflare 五秒盾）</h3>
+                    </div>
+                    <div class="section-body" style="padding-top: 8px;">
+                        <div style="margin-bottom: 12px; padding: 8px 10px; border-radius: 8px; border: 1px solid {{if .CfEnvConnected}}#bbf7d0{{else}}#fecaca{{end}}; background: {{if .CfEnvConnected}}#f0fdf4{{else}}#fef2f2{{end}}; color: {{if .CfEnvConnected}}#166534{{else}}#991b1b{{end}}; font-size: 12px;">
+                            <i class="fas {{if .CfEnvConnected}}fa-check-circle{{else}}fa-exclamation-circle{{end}}" style="margin-right: 6px;"></i>{{.CfEnvStatus}}
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>流量阈值 (次/分钟)</label>
+                                <span class="label-desc">超过该值自动开启，默认 1000。</span>
+                                <input type="number" name="cfRequestLimitPerMinute" value="{{.CfRequestLimitPerMinute}}"
+                                    min="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>恢复等级</label>
+                                <span class="label-desc">自动关闭后恢复到该等级。</span>
+                                <select name="cfRestoreSecurityLevel" required>
+                                    <option value="medium" {{if eq .CfRestoreSecurityLevel "medium"}}selected{{end}}>medium</option>
+                                    <option value="low" {{if eq .CfRestoreSecurityLevel "low"}}selected{{end}}>low</option>
+                                    <option value="high" {{if eq .CfRestoreSecurityLevel "high"}}selected{{end}}>high</option>
+                                    <option value="essentially_off" {{if eq .CfRestoreSecurityLevel "essentially_off"}}selected{{end}}>essentially_off</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>自动关闭时间 (分钟)</label>
+                                <span class="label-desc">默认 30 分钟。</span>
+                                <input type="number" name="cfShieldAutoDisableMinutes" value="{{.CfShieldAutoDisableMinutes}}"
+                                    min="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Cloudflare API Token</label>
+                                <span class="label-desc">Token 或 Global API Key。</span>
+                                <input type="text" name="cfApiToken" value="{{.CfApiToken}}" placeholder="token...">
+                            </div>
+                            <div class="form-group">
+                                <label>Cloudflare Email (可选)</label>
+                                <span class="label-desc">用于 Email + Key 认证。</span>
+                                <input type="text" name="cfAuthEmail" value="{{.CfAuthEmail}}" placeholder="you@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Cloudflare Zone ID</label>
+                                <input type="text" name="cfZoneID" value="{{.CfZoneID}}" placeholder="zone id...">
                             </div>
                         </div>
                     </div>
