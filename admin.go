@@ -141,7 +141,7 @@ func main() {
 		},
 		"userGravatar": func(name string) string {
 			var mail string
-			err := db.QueryRow("SELECT mail FROM typecho_users WHERE name = ?", name).Scan(&mail)
+			err := db.QueryRow("SELECT COALESCE(mail, '') FROM typecho_users WHERE name = ?", name).Scan(&mail)
 			if err != nil || strings.TrimSpace(mail) == "" {
 				fallback := strings.ToLower(strings.TrimSpace(name))
 				hash := md5.Sum([]byte(fallback))
@@ -213,7 +213,7 @@ func main() {
 
 		// Fetch user group
 		var userGroup string
-		db.QueryRow("SELECT \"group\" FROM typecho_users WHERE name = ?", username).Scan(&userGroup)
+		db.QueryRow("SELECT COALESCE(\"group\", 'visitor') FROM typecho_users WHERE name = ?", username).Scan(&userGroup)
 
 		c.Set("username", username)
 		c.Set("userGroup", userGroup)
@@ -1259,9 +1259,9 @@ func main() {
 		var rows *sql.Rows
 		var err error
 		if group == "visitor" {
-			rows, err = db.Query("SELECT uid, name, screenName, mail, url, \"group\", logged FROM typecho_users WHERE name=? ORDER BY uid ASC", username)
+			rows, err = db.Query("SELECT uid, name, COALESCE(screenName,''), COALESCE(mail,''), COALESCE(url,''), COALESCE(\"group\",'visitor'), logged FROM typecho_users WHERE name=? ORDER BY uid ASC", username)
 		} else {
-			rows, err = db.Query("SELECT uid, name, screenName, mail, url, \"group\", logged FROM typecho_users ORDER BY uid ASC")
+			rows, err = db.Query("SELECT uid, name, COALESCE(screenName,''), COALESCE(mail,''), COALESCE(url,''), COALESCE(\"group\",'visitor'), logged FROM typecho_users ORDER BY uid ASC")
 		}
 
 		if err != nil {
@@ -1375,7 +1375,7 @@ func main() {
 
 		var u map[string]interface{} = make(map[string]interface{})
 		var name, screenName, mail, url, group string
-		err := db.QueryRow("SELECT name, screenName, mail, url, \"group\" FROM typecho_users WHERE uid=?", uid).
+		err := db.QueryRow("SELECT name, COALESCE(screenName,''), COALESCE(mail,''), COALESCE(url,''), COALESCE(\"group\",'visitor') FROM typecho_users WHERE uid=?", uid).
 			Scan(&name, &screenName, &mail, &url, &group)
 
 		if err != nil {
