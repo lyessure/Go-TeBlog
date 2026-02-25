@@ -460,6 +460,15 @@
                                 <label>登录超时 (分钟)</label>
                                 <input type="number" name="sessionTimeout" value="{{.SessionTimeout}}" required>
                             </div>
+                            <div class="form-group">
+                                <label>系统时区</label>
+                                <span class="label-desc">修改后需重启服务生效。</span>
+                                <select name="timezone" required>
+                                    <option value="Asia/Shanghai" {{if eq .Timezone "Asia/Shanghai"}}selected{{end}}>北京时间 (GMT+8)</option>
+                                    <option value="UTC" {{if eq .Timezone "UTC"}}selected{{end}}>UTC (GMT+0)</option>
+                                    <option value="system" {{if eq .Timezone "system"}}selected{{end}}>按操作系统时区</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>

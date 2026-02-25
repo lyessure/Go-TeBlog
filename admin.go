@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,8 +27,9 @@ import (
 )
 
 var (
-	isBackingUp bool
-	backupMutex sync.Mutex
+	isBackingUp        bool
+	backupMutex        sync.Mutex
+	systemTimeLocation = time.Local
 )
 
 func main() {
@@ -112,6 +114,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create category settings table:", err)
 	}
+
+	applyConfiguredTimezone(db)
 
 	adminPath := getOption(db, "adminPath", "admin")
 	if !strings.HasPrefix(adminPath, "/") {
@@ -585,6 +589,7 @@ func main() {
 			"SiteTitle":          getOption(db, "title", "我的博客"),
 			"SiteDescription":    getOption(db, "description", "基于 Go 语言的极速博客系统"),
 			"SiteUrl":            getOption(db, "siteUrl", "http://localhost:8190"),
+			"Timezone":           normalizeTimezoneOption(getOption(db, "timezone", "Asia/Shanghai")),
 			"ConfigAdminPath":    getOption(db, "adminPath", "admin"),
 			"AiThreshold":        getOption(db, "aiThreshold", "5"),
 			"SessionTimeout":     getOption(db, "sessionTimeout", "30"),
@@ -624,6 +629,7 @@ func main() {
 		footerCode := c.PostForm("footerCode")
 		defaultCategory := c.PostForm("defaultCategory")
 		siteUrl := c.PostForm("siteUrl")
+		timezone := c.DefaultPostForm("timezone", "Asia/Shanghai")
 		newAdminPath := c.PostForm("adminPath")
 		commentAudit := c.DefaultPostForm("commentAudit", "0")
 		statsBufferSize := c.PostForm("statsBufferSize")
@@ -635,6 +641,7 @@ func main() {
 		setOption(db, "title", title)
 		setOption(db, "description", description)
 		setOption(db, "siteUrl", siteUrl)
+		setOption(db, "timezone", timezone)
 		oldAdminPath := getOption(db, "adminPath", "admin")
 		setOption(db, "adminPath", newAdminPath)
 		setOption(db, "pageSize", pageSize)
@@ -654,6 +661,7 @@ func main() {
 		setOption(db, "commentLimitIP", commentLimitIP)
 		setOption(db, "commentLimitGlobal", commentLimitGlobal)
 		setOption(db, "commentsEnabled", commentsEnabled)
+		applyConfiguredTimezone(db)
 
 		successMsg := "设置保存成功"
 		if oldAdminPath != newAdminPath {
@@ -693,6 +701,7 @@ func main() {
 			"FooterCode":         footerCode,
 			"DefaultCategory":    defaultCategory,
 			"SiteUrl":            siteUrl,
+			"Timezone":           timezone,
 			"ConfigAdminPath":    newAdminPath,
 			"CommentAudit":       commentAudit,
 			"StatsBufferSize":    statsBufferSize,
@@ -1911,6 +1920,57 @@ func hashTypecho(password string) string {
 	salt := uuid.New().String()[:8]
 	setting := "$P$" + string(itoa64[8]) + salt
 	return cryptPrivate(password, setting)
+}
+
+func applyConfiguredTimezone(db *sql.DB) {
+	tz := strings.TrimSpace(getOption(db, "timezone", "Asia/Shanghai"))
+	if tz == "" {
+		tz = "Asia/Shanghai"
+	}
+	if tz == "system" {
+		time.Local = systemTimeLocation
+		return
+	}
+	loc, ok := loadTimezoneLocation(tz)
+	if !ok {
+		log.Printf("Invalid timezone %q, fallback to Asia/Shanghai", tz)
+		loc = time.FixedZone("GMT+8", 8*60*60)
+	}
+	time.Local = loc
+}
+
+func loadTimezoneLocation(tz string) (*time.Location, bool) {
+	loc, err := time.LoadLocation(tz)
+	if err == nil {
+		return loc, true
+	}
+	seconds, convErr := strconv.Atoi(tz)
+	if convErr != nil {
+		return nil, false
+	}
+	return time.FixedZone(formatGMTOffset(seconds), seconds), true
+}
+
+func formatGMTOffset(offsetSeconds int) string {
+	sign := "+"
+	if offsetSeconds < 0 {
+		sign = "-"
+		offsetSeconds = -offsetSeconds
+	}
+	hours := offsetSeconds / 3600
+	minutes := (offsetSeconds % 3600) / 60
+	return fmt.Sprintf("GMT%s%02d:%02d", sign, hours, minutes)
+}
+
+func normalizeTimezoneOption(tz string) string {
+	switch strings.TrimSpace(tz) {
+	case "Asia/Shanghai", "UTC", "system":
+		return strings.TrimSpace(tz)
+	case "28800":
+		return "Asia/Shanghai"
+	default:
+		return "Asia/Shanghai"
+	}
 }
 
 func getOption(db *sql.DB, name string, defaultValue string) string {

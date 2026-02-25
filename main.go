@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -36,6 +37,7 @@ type statsLog struct {
 
 var statsChan chan statsLog
 var statsWG sync.WaitGroup
+var systemTimeLocation = time.Local
 
 type commentAttemptLimiter struct {
 	mu       sync.Mutex
@@ -457,6 +459,7 @@ func main() {
 
 	// Initialize database schema
 	initDB(db)
+	applyConfiguredTimezone(db)
 
 	// 配置统计缓存队列大小
 	bufferSize := getOptionInt(db, "statsBufferSize", 100)
@@ -1044,6 +1047,46 @@ func main() {
 	log.Println("Server exiting")
 }
 
+func applyConfiguredTimezone(db *sql.DB) {
+	tz := strings.TrimSpace(getOption(db, "timezone", "Asia/Shanghai"))
+	if tz == "" {
+		tz = "Asia/Shanghai"
+	}
+	if tz == "system" {
+		time.Local = systemTimeLocation
+		return
+	}
+	loc, ok := loadTimezoneLocation(tz)
+	if !ok {
+		log.Printf("Invalid timezone %q, fallback to Asia/Shanghai", tz)
+		loc = time.FixedZone("GMT+8", 8*60*60)
+	}
+	time.Local = loc
+}
+
+func loadTimezoneLocation(tz string) (*time.Location, bool) {
+	loc, err := time.LoadLocation(tz)
+	if err == nil {
+		return loc, true
+	}
+	seconds, convErr := strconv.Atoi(tz)
+	if convErr != nil {
+		return nil, false
+	}
+	return time.FixedZone(formatGMTOffset(seconds), seconds), true
+}
+
+func formatGMTOffset(offsetSeconds int) string {
+	sign := "+"
+	if offsetSeconds < 0 {
+		sign = "-"
+		offsetSeconds = -offsetSeconds
+	}
+	hours := offsetSeconds / 3600
+	minutes := (offsetSeconds % 3600) / 60
+	return fmt.Sprintf("GMT%s%02d:%02d", sign, hours, minutes)
+}
+
 func initDB(db *sql.DB) {
 	schema := []string{
 		`CREATE TABLE IF NOT EXISTS "typecho_comments" (
@@ -1169,6 +1212,7 @@ func initDB(db *sql.DB) {
 			"description": "基于 Go 语言的极速博客系统",
 			"theme":       "default",
 			"siteUrl":     "http://localhost:8190",
+			"timezone":    "Asia/Shanghai",
 		}
 		for k, v := range options {
 			db.Exec("INSERT INTO typecho_options (name, user, value) VALUES (?, 0, ?)", k, v)
