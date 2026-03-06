@@ -715,6 +715,8 @@ func main() {
 		if adminServiceName == "" {
 			adminServiceName = "blogadmin"
 		}
+		frontendServiceName = strings.TrimLeft(frontendServiceName, "-")
+		adminServiceName = strings.TrimLeft(adminServiceName, "-")
 
 		setOption(db, "title", title)
 		setOption(db, "description", description)
