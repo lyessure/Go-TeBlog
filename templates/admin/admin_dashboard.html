@@ -528,7 +528,10 @@
     </div>
     <script>
         document.getElementById('btn-restart-services').addEventListener('click', function () {
-            if (!confirm('确定要重启 blog 和 blogadmin 服务吗？重启期间后台和前台将暂时无法访问。')) {
+            const frontendServiceName = '{{.FrontendServiceName}}';
+            const adminServiceName = '{{.AdminServiceName}}';
+
+            if (!confirm(`确定要重启 ${frontendServiceName} 和 ${adminServiceName} 服务吗？重启期间后台和前台将暂时无法访问。`)) {
                 return;
             }
 

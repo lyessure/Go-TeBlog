@@ -457,6 +457,18 @@
                                     required placeholder="admin">
                             </div>
                             <div class="form-group">
+                                <label>前台服务名</label>
+                                <span class="label-desc">用于后台执行前台服务重启，默认值为 blog。</span>
+                                <input type="text" name="frontendServiceName" value="{{.FrontendServiceName}}"
+                                    required placeholder="blog">
+                            </div>
+                            <div class="form-group">
+                                <label>后台服务名</label>
+                                <span class="label-desc">用于后台执行自身服务重启，默认值为 blogadmin。</span>
+                                <input type="text" name="adminServiceName" value="{{.AdminServiceName}}" required
+                                    placeholder="blogadmin">
+                            </div>
+                            <div class="form-group">
                                 <label>登录超时 (分钟)</label>
                                 <input type="number" name="sessionTimeout" value="{{.SessionTimeout}}" required>
                             </div>

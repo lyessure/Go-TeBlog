@@ -360,6 +360,14 @@ func main() {
 		username, _ := c.Get("username")
 		adminPath, _ := c.Get("adminPath")
 		group, _ := c.Get("userGroup")
+		frontendServiceName := strings.TrimSpace(getOption(db, "frontendServiceName", "blog"))
+		if frontendServiceName == "" {
+			frontendServiceName = "blog"
+		}
+		adminServiceName := strings.TrimSpace(getOption(db, "adminServiceName", "blogadmin"))
+		if adminServiceName == "" {
+			adminServiceName = "blogadmin"
+		}
 
 		// 基础统计
 		var postCount, commentCount, categoryCount, attachmentCount int
@@ -474,6 +482,8 @@ func main() {
 			"UserGroup":            group,
 			"Tab":                  "dashboard",
 			"AdminPath":            adminPath,
+			"FrontendServiceName":  frontendServiceName,
+			"AdminServiceName":     adminServiceName,
 			"PostCount":            postCount,
 			"CommentCount":         commentCount,
 			"WeekPostCount":        weekPostCount,
@@ -626,6 +636,8 @@ func main() {
 			"SiteUrl":                    getOption(db, "siteUrl", "http://localhost:8190"),
 			"Timezone":                   normalizeTimezoneOption(getOption(db, "timezone", "Asia/Shanghai")),
 			"ConfigAdminPath":            getOption(db, "adminPath", "admin"),
+			"FrontendServiceName":        getOption(db, "frontendServiceName", "blog"),
+			"AdminServiceName":           getOption(db, "adminServiceName", "blogadmin"),
 			"AiThreshold":                getOption(db, "aiThreshold", "5"),
 			"SessionTimeout":             getOption(db, "sessionTimeout", "30"),
 			"SiteKeywords":               getOption(db, "keywords", ""),
@@ -674,6 +686,8 @@ func main() {
 		siteUrl := c.PostForm("siteUrl")
 		timezone := c.DefaultPostForm("timezone", "Asia/Shanghai")
 		newAdminPath := c.PostForm("adminPath")
+		frontendServiceName := strings.TrimSpace(c.PostForm("frontendServiceName"))
+		adminServiceName := strings.TrimSpace(c.PostForm("adminServiceName"))
 		commentAudit := c.DefaultPostForm("commentAudit", "0")
 		statsBufferSize := c.PostForm("statsBufferSize")
 		logRetentionDays := c.PostForm("logRetentionDays")
@@ -695,6 +709,12 @@ func main() {
 		if cfShieldAutoDisableMinutes == "" {
 			cfShieldAutoDisableMinutes = "30"
 		}
+		if frontendServiceName == "" {
+			frontendServiceName = "blog"
+		}
+		if adminServiceName == "" {
+			adminServiceName = "blogadmin"
+		}
 
 		setOption(db, "title", title)
 		setOption(db, "description", description)
@@ -702,6 +722,8 @@ func main() {
 		setOption(db, "timezone", timezone)
 		oldAdminPath := getOption(db, "adminPath", "admin")
 		setOption(db, "adminPath", newAdminPath)
+		setOption(db, "frontendServiceName", frontendServiceName)
+		setOption(db, "adminServiceName", adminServiceName)
 		setOption(db, "pageSize", pageSize)
 		setOption(db, "recentPostsSize", recentPostsSize)
 		setOption(db, "recentCommentsSize", recentCommentsSize)
@@ -772,6 +794,8 @@ func main() {
 			"SiteUrl":                    siteUrl,
 			"Timezone":                   timezone,
 			"ConfigAdminPath":            newAdminPath,
+			"FrontendServiceName":        frontendServiceName,
+			"AdminServiceName":           adminServiceName,
 			"CommentAudit":               commentAudit,
 			"StatsBufferSize":            statsBufferSize,
 			"LogRetentionDays":           logRetentionDays,
@@ -1593,31 +1617,40 @@ func main() {
 	})
 
 	admin.POST("/system/restart", writeProtectMiddleware, func(c *gin.Context) {
+		frontendServiceName := strings.TrimSpace(getOption(db, "frontendServiceName", "blog"))
+		if frontendServiceName == "" {
+			frontendServiceName = "blog"
+		}
+		adminServiceName := strings.TrimSpace(getOption(db, "adminServiceName", "blogadmin"))
+		if adminServiceName == "" {
+			adminServiceName = "blogadmin"
+		}
+
 		// 先重启前台 blog 服务
 		go func() {
 			// 稍微延迟一下，确保响应能发出
 			time.Sleep(1 * time.Second)
 			log.Println("收到重启请求，准备重启服务...")
 
-			// 重启 blog 服务 (前台)
-			cmdBlog := exec.Command("systemctl", "restart", "blog")
+			// 重启前台服务
+			cmdBlog := exec.Command("systemctl", "restart", frontendServiceName)
 			if err := cmdBlog.Run(); err != nil {
-				log.Printf("重启 blog 服务失败: %v", err)
+				log.Printf("重启前台服务失败 (%s): %v", frontendServiceName, err)
 			} else {
-				log.Println("blog 服务重启成功")
+				log.Printf("前台服务重启成功: %s", frontendServiceName)
 			}
 
-			// 重启 blogadmin 服务 (后台自己)
+			// 重启后台服务 (后台自己)
 			// 注意：这会导致当前进程退出，systemctl 会自动重启它
-			cmdAdmin := exec.Command("systemctl", "restart", "blogadmin")
+			cmdAdmin := exec.Command("systemctl", "restart", adminServiceName)
 			if err := cmdAdmin.Run(); err != nil {
-				log.Printf("重启 blogadmin 服务失败: %v", err)
+				log.Printf("重启后台服务失败 (%s): %v", adminServiceName, err)
 			}
 		}()
 
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
-			"message": "服务重启指令已发送，请稍等片刻后刷新页面。",
+			"message": fmt.Sprintf("服务重启指令已发送：%s、%s，请稍等片刻后刷新页面。", frontendServiceName, adminServiceName),
 		})
 	})
 
