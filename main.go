@@ -1896,6 +1896,32 @@ func getPrevNextPosts(db *sql.DB, created int64) (*Post, *Post) {
 	return prev, next
 }
 
+func stripThinkingOutput(content string) string {
+	thinkBlockRE := regexp.MustCompile(`(?is)<think\b[^>]*>.*?</think>`)
+	codeFenceRE := regexp.MustCompile("(?is)```(?:[a-z0-9_+-]+)?\\s*(.*?)\\s*```")
+
+	cleaned := thinkBlockRE.ReplaceAllString(content, " ")
+	cleaned = codeFenceRE.ReplaceAllString(cleaned, "$1")
+
+	return strings.TrimSpace(cleaned)
+}
+
+func extractSpamScore(content string) (int, bool) {
+	cleaned := stripThinkingOutput(content)
+	scoreRE := regexp.MustCompile(`\b([0-9])\b`)
+	match := scoreRE.FindStringSubmatch(cleaned)
+	if len(match) < 2 {
+		return 0, false
+	}
+
+	score, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0, false
+	}
+
+	return score, true
+}
+
 func checkSpamAI(words string, apiKey string, apiUrl string, model string) int {
 	if apiKey == "" || apiUrl == "" || model == "" {
 		return 0 // Disable check if configuration is missing
@@ -1935,13 +1961,10 @@ func checkSpamAI(words string, apiKey string, apiUrl string, model string) int {
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil && len(result.Choices) > 0 {
 			content := strings.TrimSpace(result.Choices[0].Message.Content)
-			// Handle cases where the model might start with a thinking tag
-			if strings.HasPrefix(content, "<") || strings.Contains(content, "think") {
-				return 0 // Fallback to safe if it's a reasoning model
+			if score, ok := extractSpamScore(content); ok {
+				return score
 			}
-			var score int
-			fmt.Sscanf(content, "%d", &score)
-			return score
+			return 0
 		}
 	}
 
