@@ -650,6 +650,7 @@ func main() {
 			"AiModel":                    getOption(db, "aiModel", "llama-3.3-70b-versatile"),
 			"DefaultCategory":            getOption(db, "defaultCategory", "1"),
 			"CommentAudit":               getOption(db, "commentAudit", "0"),
+			"CommentFailClosed":          getOption(db, "commentFailClosed", "0"),
 			"StatsBufferSize":            getOption(db, "statsBufferSize", "100"),
 			"LogRetentionDays":           getOption(db, "logRetentionDays", "30"),
 			"CommentLimitIP":             getOption(db, "commentLimitIP", "1"),
@@ -689,6 +690,7 @@ func main() {
 		frontendServiceName := strings.TrimSpace(c.PostForm("frontendServiceName"))
 		adminServiceName := strings.TrimSpace(c.PostForm("adminServiceName"))
 		commentAudit := c.DefaultPostForm("commentAudit", "0")
+		commentFailClosed := c.DefaultPostForm("commentFailClosed", "0")
 		statsBufferSize := c.PostForm("statsBufferSize")
 		logRetentionDays := c.PostForm("logRetentionDays")
 		commentLimitIP := c.PostForm("commentLimitIP")
@@ -738,6 +740,7 @@ func main() {
 		setOption(db, "footerCode", footerCode)
 		setOption(db, "defaultCategory", defaultCategory)
 		setOption(db, "commentAudit", commentAudit)
+		setOption(db, "commentFailClosed", commentFailClosed)
 		setOption(db, "statsBufferSize", statsBufferSize)
 		setOption(db, "logRetentionDays", logRetentionDays)
 		setOption(db, "commentLimitIP", commentLimitIP)
@@ -799,6 +802,7 @@ func main() {
 			"FrontendServiceName":        frontendServiceName,
 			"AdminServiceName":           adminServiceName,
 			"CommentAudit":               commentAudit,
+			"CommentFailClosed":          commentFailClosed,
 			"StatsBufferSize":            statsBufferSize,
 			"LogRetentionDays":           logRetentionDays,
 			"CommentLimitIP":             commentLimitIP,

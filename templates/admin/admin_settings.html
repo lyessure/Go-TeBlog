@@ -605,6 +605,14 @@
                                     <span class="slider"></span>
                                 </label>
                             </div>
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                <label>AI 检测安全导向</label>
+                                <span class="label-desc">开: API失败即拒绝；关: API失败按通过。</span>
+                                <label class="switch">
+                                    <input type="checkbox" name="commentFailClosed" value="1" {{if eq .CommentFailClosed "1"}}checked{{end}}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
                             <div class="form-group">
                                 <label>IP 频率限制 (次/分钟)</label>
                                 <input type="number" name="commentLimitIP" value="{{.CommentLimitIP}}" required min="1">

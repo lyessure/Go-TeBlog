@@ -1119,7 +1119,17 @@ func main() {
 			apiUrl := getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions")
 			model := getOption(db, "aiModel", "llama-3.3-70b-versatile")
 			threshold := getOptionInt(db, "aiThreshold", 5)
-			score := checkSpamAI(words, apiKey, apiUrl, model)
+			failClosed := getOption(db, "commentFailClosed", "0") == "1"
+			score, err := checkSpamAI(words, apiKey, apiUrl, model)
+			if err != nil && failClosed {
+				site := getSiteInfo(db)
+				c.HTML(http.StatusServiceUnavailable, "error.html", gin.H{
+					"Site":         site,
+					"ErrorTitle":   "评论发布失败",
+					"ErrorMessage": "评论发布失败，请稍后再试。",
+				})
+				return
+			}
 			if score > threshold {
 				site := getSiteInfo(db)
 				c.HTML(http.StatusForbidden, "error.html", gin.H{
@@ -1922,9 +1932,9 @@ func extractSpamScore(content string) (int, bool) {
 	return score, true
 }
 
-func checkSpamAI(words string, apiKey string, apiUrl string, model string) int {
+func checkSpamAI(words string, apiKey string, apiUrl string, model string) (int, error) {
 	if apiKey == "" || apiUrl == "" || model == "" {
-		return 0 // Disable check if configuration is missing
+		return 0, fmt.Errorf("ai moderation config missing")
 	}
 
 	systemPrompt := "You are an assistant for detecting spam, advertisements, meaningless text, and malicious content such as SQL injection or XSS. Score user input from 0 to 9, where 0 means safe (e.g., programming or server-related), 5 means suspicious, and 9 means confirmed spam, ads, attacks, or nonsense like \"asdf\", \"12345\", \"aaaa\". If the input is not in English or Chinese, score it as 9. Only return a single integer (0–9) with no explanation."
@@ -1947,7 +1957,7 @@ func checkSpamAI(words string, apiKey string, apiUrl string, model string) int {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0 // Fallback to safe on error
+		return 0, err
 	}
 	defer resp.Body.Close()
 
@@ -1962,11 +1972,12 @@ func checkSpamAI(words string, apiKey string, apiUrl string, model string) int {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil && len(result.Choices) > 0 {
 			content := strings.TrimSpace(result.Choices[0].Message.Content)
 			if score, ok := extractSpamScore(content); ok {
-				return score
+				return score, nil
 			}
-			return 0
+			return 0, fmt.Errorf("ai moderation response invalid")
 		}
+		return 0, fmt.Errorf("ai moderation decode failed")
 	}
 
-	return 0
+	return 0, fmt.Errorf("ai moderation status: %d", resp.StatusCode)
 }
