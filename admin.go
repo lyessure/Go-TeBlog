@@ -632,6 +632,7 @@ func main() {
 
 		c.HTML(http.StatusOK, "admin_settings.html", gin.H{
 			"Username":                   username,
+			"UserGroup":                  group,
 			"Tab":                        "settings",
 			"AdminPath":                  adminPath,
 			"SiteTitle":                  getOption(db, "title", "我的博客"),
@@ -784,6 +785,7 @@ func main() {
 
 		c.HTML(http.StatusOK, "admin_settings.html", gin.H{
 			"Username":                   username,
+			"UserGroup":                  c.MustGet("userGroup"),
 			"Tab":                        "settings",
 			"AdminPath":                  curAdminPath,
 			"SiteTitle":                  title,

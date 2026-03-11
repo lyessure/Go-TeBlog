@@ -682,8 +682,8 @@
                             </div>
                             <div class="form-group full-width">
                                 <label>Cloudflare 连通性检测</label>
-                                <span class="label-desc">可选操作，使用当前表单参数测试 Cloudflare 配置是否可调用。</span>
-                                <button type="button" class="btn-secondary" id="cfTestBtn">
+                                <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，使用当前表单参数测试 Cloudflare 配置是否可调用。{{end}}</span>
+                                <button type="button" class="btn-secondary" id="cfTestBtn" {{if eq .UserGroup "visitor"}}disabled{{end}}>
                                     <i class="fas fa-cloud" style="margin-right: 8px;"></i>检测
                                 </button>
                             </div>
@@ -767,8 +767,8 @@
                             </div>
                             <div class="form-group full-width">
                                 <label>AI 连通性检测</label>
-                                <span class="label-desc">可选操作，使用当前表单参数测试评论过滤 AI 是否可调用。</span>
-                                <button type="button" class="btn-secondary" id="aiTestBtn">
+                                <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，使用当前表单参数测试评论过滤 AI 是否可调用。{{end}}</span>
+                                <button type="button" class="btn-secondary" id="aiTestBtn" {{if eq .UserGroup "visitor"}}disabled{{end}}>
                                     <i class="fas fa-vial" style="margin-right: 8px;"></i>检测
                                 </button>
                             </div>
@@ -869,7 +869,8 @@
                         const response = await fetch('{{adminPath}}/settings/ai-test', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                'X-Requested-With': 'XMLHttpRequest'
                             },
                             body: formData.toString()
                         });
@@ -942,7 +943,8 @@
                         const response = await fetch('{{adminPath}}/settings/cloudflare-test', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                                'X-Requested-With': 'XMLHttpRequest'
                             },
                             body: formData.toString()
                         });
