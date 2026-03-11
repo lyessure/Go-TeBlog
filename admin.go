@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -818,6 +821,65 @@ func main() {
 			"CfEnvStatus":                cfEnvStatus,
 			"AllCategories":              categories,
 			"SuccessMessage":             successMsg,
+		})
+	})
+
+	admin.POST("/settings/ai-test", writeProtectMiddleware, func(c *gin.Context) {
+		apiKey := strings.TrimSpace(c.PostForm("grokApiKey"))
+		apiURL := strings.TrimSpace(c.PostForm("aiApiUrl"))
+		model := strings.TrimSpace(c.PostForm("aiModel"))
+		if apiKey == "" || apiURL == "" || model == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"ok":      false,
+				"message": "请先填写 AI API URL、AI Model 和 AI API Key。",
+			})
+			return
+		}
+
+		score, err := checkSpamAITestComment("这是一条正常的测试评论，用于检测评论过滤 AI 接口是否可正常调用。", apiKey, apiURL, model)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"ok":      false,
+				"message": "调用失败：" + err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"message": "AI 接口连接正常，评论检测服务已就绪。",
+			"score":   score,
+		})
+	})
+
+	admin.POST("/settings/cloudflare-test", writeProtectMiddleware, func(c *gin.Context) {
+		apiToken := strings.TrimSpace(c.PostForm("cfApiToken"))
+		authEmail := strings.TrimSpace(c.PostForm("cfAuthEmail"))
+		zoneID := strings.TrimSpace(c.PostForm("cfZoneID"))
+		if apiToken == "" || zoneID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"ok":      false,
+				"message": "请先填写 Cloudflare API Token 和 Zone ID。",
+			})
+			return
+		}
+
+		zoneName, err := testCloudflareCredentials(apiToken, authEmail, zoneID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"ok":      false,
+				"message": "检测失败：" + err.Error(),
+			})
+			return
+		}
+
+		msg := "Cloudflare 接口连接正常，配置已可用。"
+		if zoneName != "" {
+			msg = fmt.Sprintf("Cloudflare 接口连接正常，当前站点 %s 配置已可用。", zoneName)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"ok":      true,
+			"message": msg,
 		})
 	})
 
@@ -2087,6 +2149,136 @@ func normalizeTimezoneOption(tz string) string {
 	default:
 		return "Asia/Shanghai"
 	}
+}
+
+func stripThinkingOutput(content string) string {
+	thinkBlockRE := regexp.MustCompile(`(?is)<think\b[^>]*>.*?</think>`)
+	codeFenceRE := regexp.MustCompile("(?is)```(?:[a-z0-9_+-]+)?\\s*(.*?)\\s*```")
+
+	cleaned := thinkBlockRE.ReplaceAllString(content, " ")
+	cleaned = codeFenceRE.ReplaceAllString(cleaned, "$1")
+
+	return strings.TrimSpace(cleaned)
+}
+
+func extractSpamScore(content string) (int, bool) {
+	cleaned := stripThinkingOutput(content)
+	scoreRE := regexp.MustCompile(`\b([0-9])\b`)
+	match := scoreRE.FindStringSubmatch(cleaned)
+	if len(match) < 2 {
+		return 0, false
+	}
+
+	score, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0, false
+	}
+
+	return score, true
+}
+
+func checkSpamAITestComment(words string, apiKey string, apiURL string, model string) (int, error) {
+	if apiKey == "" || apiURL == "" || model == "" {
+		return 0, fmt.Errorf("ai moderation config missing")
+	}
+
+	systemPrompt := "You are an assistant for detecting spam, advertisements, meaningless text, and malicious content such as SQL injection or XSS. Score user input from 0 to 9, where 0 means safe (e.g., programming or server-related), 5 means suspicious, and 9 means confirmed spam, ads, attacks, or nonsense like \"asdf\", \"12345\", \"aaaa\". If the input is not in English or Chinese, score it as 9. Only return a single integer (0–9) with no explanation."
+
+	requestData := map[string]interface{}{
+		"model": model,
+		"messages": []map[string]string{
+			{"role": "system", "content": systemPrompt},
+			{"role": "user", "content": words},
+		},
+		"max_tokens":  1,
+		"temperature": 0.1,
+	}
+
+	jsonData, _ := json.Marshal(requestData)
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, _ := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("ai moderation status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("ai moderation decode failed")
+	}
+	if len(result.Choices) == 0 {
+		return 0, fmt.Errorf("ai moderation response empty")
+	}
+
+	content := strings.TrimSpace(result.Choices[0].Message.Content)
+	score, ok := extractSpamScore(content)
+	if !ok {
+		return 0, fmt.Errorf("ai moderation response invalid")
+	}
+
+	return score, nil
+}
+
+func testCloudflareCredentials(apiToken, authEmail, zoneID string) (string, error) {
+	endpoint := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s", zoneID)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", fmt.Errorf("构建 Cloudflare 请求失败: %w", err)
+	}
+
+	if authEmail != "" {
+		req.Header.Set("X-Auth-Email", authEmail)
+		req.Header.Set("X-Auth-Key", apiToken)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+apiToken)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Cloudflare 请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("Cloudflare 返回状态 %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var apiResp struct {
+		Success bool `json:"success"`
+		Result  struct {
+			Name string `json:"name"`
+		} `json:"result"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return "", fmt.Errorf("Cloudflare 返回解析失败")
+	}
+	if !apiResp.Success {
+		if len(apiResp.Errors) > 0 && apiResp.Errors[0].Message != "" {
+			return "", fmt.Errorf("Cloudflare 返回错误: %s", apiResp.Errors[0].Message)
+		}
+		return "", fmt.Errorf("Cloudflare 返回失败")
+	}
+
+	return strings.TrimSpace(apiResp.Result.Name), nil
 }
 
 func getOption(db *sql.DB, name string, defaultValue string) string {

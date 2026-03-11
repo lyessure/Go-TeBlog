@@ -303,6 +303,32 @@
             box-shadow: 0 10px 15px -3px rgba(9, 132, 227, 0.4);
         }
 
+        .btn-secondary {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.25);
+            align-self: flex-start;
+        }
+
+        .btn-secondary:hover {
+            background: #0f9f71;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary:disabled {
+            background: #94a3b8;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+        }
+
         .alert {
             padding: 16px;
             border-radius: 12px;
@@ -367,6 +393,85 @@
 
         input:checked+.slider:before {
             transform: translateX(26px);
+        }
+
+        .result-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 200;
+        }
+
+        .result-modal.active {
+            display: flex;
+        }
+
+        .result-frame {
+            width: min(440px, 100%);
+            background: #ffffff;
+            border-radius: 18px;
+            border: 1px solid #dbeafe;
+            box-shadow: 0 24px 50px rgba(15, 23, 42, 0.2);
+            overflow: hidden;
+        }
+
+        .result-frame-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 22px;
+            background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .result-frame-title {
+            margin: 0;
+            font-size: 16px;
+            color: #0f172a;
+        }
+
+        .result-close {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .result-frame-body {
+            padding: 22px;
+        }
+
+        .result-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .result-status.ok {
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .result-status.fail {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
+        .result-message {
+            margin: 0;
+            color: #334155;
+            line-height: 1.6;
+            word-break: break-word;
         }
     </style>
 </head>
@@ -575,6 +680,13 @@
                                 <span class="label-desc">在 Cloudflare 后台概述页右下角可查询。</span>
                                 <input type="text" name="cfZoneID" value="{{.CfZoneID}}" placeholder="zone id...">
                             </div>
+                            <div class="form-group full-width">
+                                <label>Cloudflare 连通性检测</label>
+                                <span class="label-desc">可选操作，使用当前表单参数测试 Cloudflare 配置是否可调用。</span>
+                                <button type="button" class="btn-secondary" id="cfTestBtn">
+                                    <i class="fas fa-cloud" style="margin-right: 8px;"></i>检测
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -653,6 +765,13 @@
                                 <label>AI API Key</label>
                                 <input type="text" name="grokApiKey" value="{{.GrokApiKey}}" placeholder="sk-...">
                             </div>
+                            <div class="form-group full-width">
+                                <label>AI 连通性检测</label>
+                                <span class="label-desc">可选操作，使用当前表单参数测试评论过滤 AI 是否可调用。</span>
+                                <button type="button" class="btn-secondary" id="aiTestBtn">
+                                    <i class="fas fa-vial" style="margin-right: 8px;"></i>检测
+                                </button>
+                            </div>
                             <div class="form-group full-width"
                                 style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e2e8f0;">
                                 <label>统计日志缓冲区</label>
@@ -678,6 +797,19 @@
         </div>
     </div>
 
+    <div class="result-modal" id="aiTestModal">
+        <div class="result-frame">
+            <div class="result-frame-head">
+                <h3 class="result-frame-title">AI 检测结果</h3>
+                <button type="button" class="result-close" id="aiTestModalClose">&times;</button>
+            </div>
+            <div class="result-frame-body">
+                <div class="result-status" id="aiTestStatus"></div>
+                <p class="result-message" id="aiTestMessage"></p>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function () {
             const input = document.getElementById('adminPathInput');
@@ -693,6 +825,140 @@
             if (input && preview) {
                 input.addEventListener('input', updatePreview);
                 updatePreview();
+            }
+        })();
+
+        (function () {
+            const btn = document.getElementById('aiTestBtn');
+            const modal = document.getElementById('aiTestModal');
+            const closeBtn = document.getElementById('aiTestModalClose');
+            const titleEl = document.querySelector('.result-frame-title');
+            const statusEl = document.getElementById('aiTestStatus');
+            const messageEl = document.getElementById('aiTestMessage');
+
+            function showResult(ok, message) {
+                titleEl.textContent = 'AI 检测结果';
+                statusEl.className = 'result-status ' + (ok ? 'ok' : 'fail');
+                statusEl.innerHTML = ok
+                    ? '<i class="fas fa-check-circle"></i><span>调用正常</span>'
+                    : '<i class="fas fa-times-circle"></i><span>调用失败</span>';
+                messageEl.textContent = message;
+                modal.classList.add('active');
+            }
+
+            function closeModal() {
+                modal.classList.remove('active');
+                titleEl.textContent = 'AI 检测结果';
+            }
+
+            if (btn) {
+                btn.addEventListener('click', async function () {
+                    const apiUrl = document.querySelector('input[name="aiApiUrl"]').value.trim();
+                    const model = document.querySelector('input[name="aiModel"]').value.trim();
+                    const apiKey = document.querySelector('input[name="grokApiKey"]').value.trim();
+                    const formData = new URLSearchParams();
+
+                    formData.append('aiApiUrl', apiUrl);
+                    formData.append('aiModel', model);
+                    formData.append('grokApiKey', apiKey);
+
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>检测中';
+
+                    try {
+                        const response = await fetch('{{adminPath}}/settings/ai-test', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                            },
+                            body: formData.toString()
+                        });
+                        const data = await response.json();
+                        showResult(Boolean(data.ok), data.message || '检测失败');
+                    } catch (error) {
+                        showResult(false, '请求失败，请稍后再试。');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-vial" style="margin-right: 8px;"></i>检测';
+                    }
+                });
+            }
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeModal);
+            }
+
+            if (modal) {
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        closeModal();
+                    }
+                });
+            }
+        })();
+
+        (function () {
+            const btn = document.getElementById('cfTestBtn');
+            const modal = document.getElementById('aiTestModal');
+            const closeBtn = document.getElementById('aiTestModalClose');
+            const titleEl = document.querySelector('.result-frame-title');
+            const statusEl = document.getElementById('aiTestStatus');
+            const messageEl = document.getElementById('aiTestMessage');
+
+            function showResult(ok, message) {
+                titleEl.textContent = 'Cloudflare 检测结果';
+                statusEl.className = 'result-status ' + (ok ? 'ok' : 'fail');
+                statusEl.innerHTML = ok
+                    ? '<i class="fas fa-check-circle"></i><span>连接正常</span>'
+                    : '<i class="fas fa-times-circle"></i><span>连接失败</span>';
+                messageEl.textContent = message;
+                modal.classList.add('active');
+            }
+
+            function resetTitle() {
+                titleEl.textContent = 'AI 检测结果';
+            }
+
+            function closeModal() {
+                modal.classList.remove('active');
+                resetTitle();
+            }
+
+            if (btn) {
+                btn.addEventListener('click', async function () {
+                    const apiToken = document.querySelector('input[name="cfApiToken"]').value.trim();
+                    const authEmail = document.querySelector('input[name="cfAuthEmail"]').value.trim();
+                    const zoneID = document.querySelector('input[name="cfZoneID"]').value.trim();
+                    const formData = new URLSearchParams();
+
+                    formData.append('cfApiToken', apiToken);
+                    formData.append('cfAuthEmail', authEmail);
+                    formData.append('cfZoneID', zoneID);
+
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>检测中';
+
+                    try {
+                        const response = await fetch('{{adminPath}}/settings/cloudflare-test', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                            },
+                            body: formData.toString()
+                        });
+                        const data = await response.json();
+                        showResult(Boolean(data.ok), data.message || '检测失败');
+                    } catch (error) {
+                        showResult(false, '请求失败，请稍后再试。');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-cloud" style="margin-right: 8px;"></i>检测';
+                    }
+                });
+            }
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', resetTitle);
             }
         })();
     </script>
