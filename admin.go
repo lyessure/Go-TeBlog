@@ -468,7 +468,7 @@ func main() {
 		}
 
 		cfShieldActive := getOption(db, "cfShieldActive", "0") == "1"
-		cfShieldStatus := "关闭"
+		cfShieldStatus := "未激活"
 		cfShieldUntil := "未开启"
 		if cfShieldActive {
 			cfShieldStatus = "已开启"
