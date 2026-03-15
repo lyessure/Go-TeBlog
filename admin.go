@@ -418,17 +418,46 @@ func main() {
 			dbSize = fmt.Sprintf("%.2f MB", float64(dbFile.Size())/(1024*1024))
 		}
 
+		// 内存单位转换（自动选择 MB/GB）
+		formatMem := func(mb float64) string {
+			if mb >= 1024 {
+				return fmt.Sprintf("%.2f GB", mb/1024)
+			}
+			return fmt.Sprintf("%.2f MB", mb)
+		}
+
 		// 系统信息
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
-		memUsed := fmt.Sprintf("%.2f MB", float64(m.Alloc)/(1024*1024))
+		memUsed := formatMem(float64(m.Alloc) / (1024 * 1024))
 
 		var totalMem int
+		var memFree string
 		var si syscall.Sysinfo_t
 		if err := syscall.Sysinfo(&si); err == nil {
 			// 将字节转换为 GB，并取整（向上取整以补偿内核占用空间）
 			ramBytes := float64(si.Totalram) * float64(si.Unit)
 			totalMem = int((ramBytes + (512 * 1024 * 1024)) / (1024 * 1024 * 1024))
+			// 默认使用 syscall 的 Freeram（跨平台兼容）
+			memFree = formatMem(float64(si.Freeram) * float64(si.Unit) / (1024 * 1024))
+		}
+
+		// Linux 上尝试获取 MemAvailable（更准确的可用内存，包含 buffer/cache）
+		if runtime.GOOS == "linux" {
+			if data, err := os.ReadFile("/proc/meminfo"); err == nil {
+				lines := strings.Split(string(data), "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "MemAvailable:") {
+						parts := strings.Fields(line)
+						if len(parts) >= 2 {
+							if kb, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+								memFree = formatMem(float64(kb) / 1024)
+							}
+							break
+						}
+					}
+				}
+			}
 		}
 
 		// 目录占用统计函数
@@ -503,7 +532,7 @@ func main() {
 			"TotalBotIP":           totalBotIP,
 			"RetentionLabel":       retentionLabel,
 			"DbSize":               dbSize,
-			"MemUsed":              memUsed,
+			"MemUsed":              memUsed + " / " + memFree,
 			"GoVersion":            runtime.Version(),
 			"OS":                   runtime.GOOS,
 			"Arch":                 runtime.GOARCH,
