@@ -1254,6 +1254,52 @@ func main() {
 		})
 	}
 
+	handleDateArchive := func(c *gin.Context) {
+		yearStr := c.Param("year")
+		monthStr := c.Param("month")
+		pageStr := c.Param("page")
+		if pageStr == "" {
+			pageStr = "1"
+		}
+
+		year, errYear := strconv.Atoi(yearStr)
+		month, errMonth := strconv.Atoi(monthStr)
+		page, errPage := strconv.Atoi(pageStr)
+		if errYear != nil || errMonth != nil || errPage != nil || year < 1970 || month < 1 || month > 12 || page < 1 {
+			site := getSiteInfo(db)
+			c.HTML(http.StatusNotFound, "error.html", gin.H{
+				"Site":         site,
+				"ErrorTitle":   "归档不存在",
+				"ErrorMessage": "抱歉，您访问的归档不存在。",
+			})
+			return
+		}
+
+		pageSize := getOptionInt(db, "pageSize", 10)
+		site := getSiteInfo(db)
+		posts, total := getPostsByYearMonth(db, page, pageSize, year, month)
+		recentPosts := getRecentPostsSidebar(db, "")
+		categories := getCategories(db)
+		recentComments := getRecentComments(db, "")
+		totalPages := (total + pageSize - 1) / pageSize
+
+		c.HTML(http.StatusOK, "index.html", PageData{
+			Site:           site,
+			Posts:          posts,
+			RecentPosts:    recentPosts,
+			Categories:     categories,
+			RecentComments: recentComments,
+			ArchiveTitle:   fmt.Sprintf("%04d年%02d月归档", year, month),
+			PaginationBase: fmt.Sprintf("/blog/index.php/%04d/%02d/", year, month),
+			CurrentPage:    page,
+			TotalPages:     totalPages,
+			HasPrev:        page > 1,
+			HasNext:        page < totalPages,
+			PrevPage:       page - 1,
+			NextPage:       page + 1,
+		})
+	}
+
 	r.GET("/blog", handleIndex)
 	r.GET("/blog/", handleIndex)
 	r.GET("/blog/index.php", handleIndex)
@@ -1273,6 +1319,10 @@ func main() {
 	r.GET("/blog/index.php/category/:slug/:page/", handleCategory)
 	r.GET("/blog/index.php/category/:slug/page/:page", handleCategory)
 	r.GET("/blog/index.php/category/:slug/page/:page/", handleCategory)
+	r.GET("/blog/index.php/:year/:month", handleDateArchive)
+	r.GET("/blog/index.php/:year/:month/", handleDateArchive)
+	r.GET("/blog/index.php/:year/:month/page/:page", handleDateArchive)
+	r.GET("/blog/index.php/:year/:month/page/:page/", handleDateArchive)
 	r.GET("/blog/index.php/archives/:cid", handlePost)
 	r.GET("/blog/index.php/archives/:cid/", handlePost)
 	r.POST("/blog/index.php/archives/:cid/comment", handleComment)
@@ -1692,6 +1742,74 @@ func getPostsByCategory(db *sql.DB, page, pageSize int, slug string) ([]Post, in
 	for rows.Next() {
 		var p Post
 		rows.Scan(&p.Cid, &p.Title, &p.Slug, &p.Created, &p.Text, &p.CommentsNum)
+		p.Categories = getPostCategories(db, p.Cid)
+		p.IsTop = stickyMap[p.Cid]
+		posts = append(posts, p)
+	}
+	return posts, total
+}
+
+func getPostsByYearMonth(db *sql.DB, page, pageSize int, year, month int) ([]Post, int) {
+	var total int
+	yearStr := fmt.Sprintf("%04d", year)
+	monthStr := fmt.Sprintf("%02d", month)
+
+	db.QueryRow(`
+		SELECT COUNT(*) FROM typecho_contents t
+		WHERE t.type='post' AND t.status='publish'
+		AND strftime('%Y', datetime(t.created, 'unixepoch', 'localtime'))=?
+		AND strftime('%m', datetime(t.created, 'unixepoch', 'localtime'))=?
+		AND t.cid NOT IN (SELECT cid FROM typecho_relationships r JOIN go_category_settings s ON r.mid = s.mid WHERE s.show_on_home = 0 OR s.is_offline = 1)
+	`, yearStr, monthStr).Scan(&total)
+
+	offset := (page - 1) * pageSize
+	stickyCidsStr := getOption(db, "sticky_cids", "")
+	orderBy := "t.created DESC"
+	if stickyCidsStr != "" {
+		isSafe := true
+		for _, r := range stickyCidsStr {
+			if (r < '0' || r > '9') && r != ',' {
+				isSafe = false
+				break
+			}
+		}
+		if isSafe {
+			orderBy = fmt.Sprintf("CASE WHEN t.cid IN (%s) THEN 1 ELSE 0 END DESC, t.created DESC", stickyCidsStr)
+		}
+	}
+
+	rows, err := db.Query(`
+		SELECT t.cid, t.title, t.slug, t.created, t.text, t.commentsNum, t.authorId, u.screenName
+		FROM typecho_contents t
+		LEFT JOIN typecho_users u ON t.authorId = u.uid
+		WHERE t.type='post' AND t.status='publish'
+		AND strftime('%Y', datetime(t.created, 'unixepoch', 'localtime'))=?
+		AND strftime('%m', datetime(t.created, 'unixepoch', 'localtime'))=?
+		AND t.cid NOT IN (SELECT cid FROM typecho_relationships r JOIN go_category_settings s ON r.mid = s.mid WHERE s.show_on_home = 0 OR s.is_offline = 1)
+		ORDER BY `+orderBy+` LIMIT ? OFFSET ?`, yearStr, monthStr, pageSize, offset)
+	if err != nil {
+		return nil, 0
+	}
+	defer rows.Close()
+
+	stickyMap := make(map[int]bool)
+	if stickyCidsStr != "" {
+		for _, s := range strings.Split(stickyCidsStr, ",") {
+			var id int
+			fmt.Sscan(s, &id)
+			if id > 0 {
+				stickyMap[id] = true
+			}
+		}
+	}
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		rows.Scan(&p.Cid, &p.Title, &p.Slug, &p.Created, &p.Text, &p.CommentsNum, &p.AuthorId, &p.Author)
+		if p.Author == "" {
+			p.Author = "admin"
+		}
 		p.Categories = getPostCategories(db, p.Cid)
 		p.IsTop = stickyMap[p.Cid]
 		posts = append(posts, p)
