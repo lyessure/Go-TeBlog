@@ -622,6 +622,19 @@
                                 <label>侧边栏评论数</label>
                                 <input type="number" name="recentCommentsSize" value="{{.RecentCommentsSize}}" required>
                             </div>
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                <label>显示日期归档</label>
+                                <span class="label-desc">首页侧边栏“最近评论”下方显示归档索引。</span>
+                                <label class="switch">
+                                    <input type="checkbox" name="showDateArchives" value="1" {{if eq .ShowDateArchives "1"}}checked{{end}}>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>归档显示条数</label>
+                                <span class="label-desc">默认 12。</span>
+                                <input type="number" name="dateArchivesSize" value="{{.DateArchivesSize}}" required min="1" max="120">
+                            </div>
                             <div class="form-group">
                                 <label>统计日志保留天数</label>
                                 <span class="label-desc">过期自动清理。0 为不清理。</span>

@@ -410,6 +410,14 @@ type Comment struct {
 	Created int64
 }
 
+type DateArchiveItem struct {
+	Year  int
+	Month int
+	Count int
+	URL   string
+	Label string
+}
+
 type Tag struct {
 	Name string
 	Slug string
@@ -438,21 +446,23 @@ type SiteInfo struct {
 }
 
 type PageData struct {
-	Site           SiteInfo
-	Posts          []Post
-	RecentPosts    []Post
-	Categories     []Category
-	RecentComments []Comment
-	SearchQuery    string
-	ArchiveTitle   string
-	PaginationBase string
-	CurrentSlug    string
-	CurrentPage    int
-	TotalPages     int
-	HasPrev        bool
-	HasNext        bool
-	PrevPage       int
-	NextPage       int
+	Site            SiteInfo
+	Posts           []Post
+	RecentPosts     []Post
+	Categories      []Category
+	RecentComments  []Comment
+	ShowDateArchive bool
+	DateArchives    []DateArchiveItem
+	SearchQuery     string
+	ArchiveTitle    string
+	PaginationBase  string
+	CurrentSlug     string
+	CurrentPage     int
+	TotalPages      int
+	HasPrev         bool
+	HasNext         bool
+	PrevPage        int
+	NextPage        int
 }
 
 func statsMiddleware(db *sql.DB, adminPath string) gin.HandlerFunc {
@@ -932,24 +942,31 @@ func main() {
 		recentPosts := getRecentPostsSidebar(db, "")
 		categories := getCategories(db)
 		recentComments := getRecentComments(db, "")
+		showDateArchive, dateArchiveLimit := getDateArchiveSettings(db)
+		var dateArchives []DateArchiveItem
+		if showDateArchive {
+			dateArchives = getDateArchives(db, dateArchiveLimit)
+		}
 
 		totalPages := (total + pageSize - 1) / pageSize
 
 		c.HTML(http.StatusOK, "index.html", PageData{
-			Site:           site,
-			Posts:          posts,
-			RecentPosts:    recentPosts,
-			Categories:     categories,
-			RecentComments: recentComments,
-			SearchQuery:    s,
-			PaginationBase: "/blog/index.php/",
-			CurrentSlug:    "",
-			CurrentPage:    page,
-			TotalPages:     totalPages,
-			HasPrev:        page > 1,
-			HasNext:        page < totalPages,
-			PrevPage:       page - 1,
-			NextPage:       page + 1,
+			Site:            site,
+			Posts:           posts,
+			RecentPosts:     recentPosts,
+			Categories:      categories,
+			RecentComments:  recentComments,
+			ShowDateArchive: showDateArchive,
+			DateArchives:    dateArchives,
+			SearchQuery:     s,
+			PaginationBase:  "/blog/index.php/",
+			CurrentSlug:     "",
+			CurrentPage:     page,
+			TotalPages:      totalPages,
+			HasPrev:         page > 1,
+			HasNext:         page < totalPages,
+			PrevPage:        page - 1,
+			NextPage:        page + 1,
 		})
 	}
 
@@ -983,23 +1000,30 @@ func main() {
 		recentPosts := getRecentPostsSidebar(db, "")
 		categories := getCategories(db)
 		recentComments := getRecentComments(db, "")
+		showDateArchive, dateArchiveLimit := getDateArchiveSettings(db)
+		var dateArchives []DateArchiveItem
+		if showDateArchive {
+			dateArchives = getDateArchives(db, dateArchiveLimit)
+		}
 
 		totalPages := (total + pageSize - 1) / pageSize
 
 		c.HTML(http.StatusOK, "index.html", PageData{
-			Site:           site,
-			Posts:          posts,
-			RecentPosts:    recentPosts,
-			Categories:     categories,
-			RecentComments: recentComments,
-			SearchQuery:    s,
-			PaginationBase: fmt.Sprintf("/blog/index.php/search/%s/", s),
-			CurrentPage:    page,
-			TotalPages:     totalPages,
-			HasPrev:        page > 1,
-			HasNext:        page < totalPages,
-			PrevPage:       page - 1,
-			NextPage:       page + 1,
+			Site:            site,
+			Posts:           posts,
+			RecentPosts:     recentPosts,
+			Categories:      categories,
+			RecentComments:  recentComments,
+			ShowDateArchive: showDateArchive,
+			DateArchives:    dateArchives,
+			SearchQuery:     s,
+			PaginationBase:  fmt.Sprintf("/blog/index.php/search/%s/", s),
+			CurrentPage:     page,
+			TotalPages:      totalPages,
+			HasPrev:         page > 1,
+			HasNext:         page < totalPages,
+			PrevPage:        page - 1,
+			NextPage:        page + 1,
 		})
 	}
 
@@ -1233,24 +1257,31 @@ func main() {
 		recentPosts := getRecentPostsSidebar(db, slug)
 		categories := getCategories(db)
 		recentComments := getRecentComments(db, slug)
+		showDateArchive, dateArchiveLimit := getDateArchiveSettings(db)
+		var dateArchives []DateArchiveItem
+		if showDateArchive {
+			dateArchives = getDateArchives(db, dateArchiveLimit)
+		}
 
 		totalPages := (total + pageSize - 1) / pageSize
 
 		c.HTML(http.StatusOK, "index.html", PageData{
-			Site:           site,
-			Posts:          posts,
-			RecentPosts:    recentPosts,
-			Categories:     categories,
-			RecentComments: recentComments,
-			ArchiveTitle:   fmt.Sprintf("分类 %s 下的文章", catName),
-			PaginationBase: fmt.Sprintf("/blog/index.php/category/%s/", slug),
-			CurrentSlug:    slug,
-			CurrentPage:    page,
-			TotalPages:     totalPages,
-			HasPrev:        page > 1,
-			HasNext:        page < totalPages,
-			PrevPage:       page - 1,
-			NextPage:       page + 1,
+			Site:            site,
+			Posts:           posts,
+			RecentPosts:     recentPosts,
+			Categories:      categories,
+			RecentComments:  recentComments,
+			ShowDateArchive: showDateArchive,
+			DateArchives:    dateArchives,
+			ArchiveTitle:    fmt.Sprintf("分类 %s 下的文章", catName),
+			PaginationBase:  fmt.Sprintf("/blog/index.php/category/%s/", slug),
+			CurrentSlug:     slug,
+			CurrentPage:     page,
+			TotalPages:      totalPages,
+			HasPrev:         page > 1,
+			HasNext:         page < totalPages,
+			PrevPage:        page - 1,
+			NextPage:        page + 1,
 		})
 	}
 
@@ -1281,22 +1312,29 @@ func main() {
 		recentPosts := getRecentPostsSidebar(db, "")
 		categories := getCategories(db)
 		recentComments := getRecentComments(db, "")
+		showDateArchive, dateArchiveLimit := getDateArchiveSettings(db)
+		var dateArchives []DateArchiveItem
+		if showDateArchive {
+			dateArchives = getDateArchives(db, dateArchiveLimit)
+		}
 		totalPages := (total + pageSize - 1) / pageSize
 
 		c.HTML(http.StatusOK, "index.html", PageData{
-			Site:           site,
-			Posts:          posts,
-			RecentPosts:    recentPosts,
-			Categories:     categories,
-			RecentComments: recentComments,
-			ArchiveTitle:   fmt.Sprintf("%04d年%02d月归档", year, month),
-			PaginationBase: fmt.Sprintf("/blog/index.php/%04d/%02d/", year, month),
-			CurrentPage:    page,
-			TotalPages:     totalPages,
-			HasPrev:        page > 1,
-			HasNext:        page < totalPages,
-			PrevPage:       page - 1,
-			NextPage:       page + 1,
+			Site:            site,
+			Posts:           posts,
+			RecentPosts:     recentPosts,
+			Categories:      categories,
+			RecentComments:  recentComments,
+			ShowDateArchive: showDateArchive,
+			DateArchives:    dateArchives,
+			ArchiveTitle:    fmt.Sprintf("%04d年%02d月归档", year, month),
+			PaginationBase:  fmt.Sprintf("/blog/index.php/%04d/%02d/", year, month),
+			CurrentPage:     page,
+			TotalPages:      totalPages,
+			HasPrev:         page > 1,
+			HasNext:         page < totalPages,
+			PrevPage:        page - 1,
+			NextPage:        page + 1,
 		})
 	}
 
@@ -1578,6 +1616,18 @@ func getOptionInt(db *sql.DB, name string, defaultValue int) int {
 		return defaultValue
 	}
 	return i
+}
+
+func getDateArchiveSettings(db *sql.DB) (bool, int) {
+	show := getOption(db, "showDateArchives", "1") == "1"
+	limit := getOptionInt(db, "dateArchivesSize", 12)
+	if limit < 1 {
+		limit = 12
+	}
+	if limit > 120 {
+		limit = 120
+	}
+	return show, limit
 }
 
 func getOptionInt64(db *sql.DB, name string, defaultValue int64) int64 {
@@ -1960,6 +2010,34 @@ func getRecentComments(db *sql.DB, catSlug string) []Comment {
 		comms = append(comms, comm)
 	}
 	return comms
+}
+
+func getDateArchives(db *sql.DB, limit int) []DateArchiveItem {
+	rows, err := db.Query(`
+		SELECT 
+			CAST(strftime('%Y', datetime(created, 'unixepoch', 'localtime')) AS INTEGER) AS y,
+			CAST(strftime('%m', datetime(created, 'unixepoch', 'localtime')) AS INTEGER) AS m,
+			COUNT(*)
+		FROM typecho_contents
+		WHERE type='post' AND status='publish'
+		AND cid NOT IN (SELECT cid FROM typecho_relationships r JOIN go_category_settings s ON r.mid = s.mid WHERE s.show_on_home = 0 OR s.is_offline = 1)
+		GROUP BY y, m
+		ORDER BY y DESC, m DESC
+		LIMIT ?`, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var archives []DateArchiveItem
+	for rows.Next() {
+		var item DateArchiveItem
+		rows.Scan(&item.Year, &item.Month, &item.Count)
+		item.URL = fmt.Sprintf("/blog/index.php/%04d/%02d/", item.Year, item.Month)
+		item.Label = fmt.Sprintf("%04d年%02d月", item.Year, item.Month)
+		archives = append(archives, item)
+	}
+	return archives
 }
 
 func getPostTags(db *sql.DB, cid int) []Tag {

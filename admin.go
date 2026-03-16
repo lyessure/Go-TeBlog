@@ -678,6 +678,8 @@ func main() {
 			"PageSize":                   getOption(db, "pageSize", "10"),
 			"RecentPostsSize":            getOption(db, "recentPostsSize", "15"),
 			"RecentCommentsSize":         getOption(db, "recentCommentsSize", "10"),
+			"ShowDateArchives":           getOption(db, "showDateArchives", "1"),
+			"DateArchivesSize":           getOption(db, "dateArchivesSize", "12"),
 			"GrokApiKey":                 apiKey,
 			"AiApiUrl":                   getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"),
 			"AiModel":                    getOption(db, "aiModel", "llama-3.3-70b-versatile"),
@@ -709,6 +711,11 @@ func main() {
 		pageSize := c.PostForm("pageSize")
 		recentPostsSize := c.PostForm("recentPostsSize")
 		recentCommentsSize := c.PostForm("recentCommentsSize")
+		showDateArchives := c.DefaultPostForm("showDateArchives", "0")
+		dateArchivesSize := strings.TrimSpace(c.PostForm("dateArchivesSize"))
+		if dateArchivesSize == "" {
+			dateArchivesSize = "12"
+		}
 		grokApiKey := c.PostForm("grokApiKey")
 		aiApiUrl := c.PostForm("aiApiUrl")
 		aiModel := c.PostForm("aiModel")
@@ -764,6 +771,8 @@ func main() {
 		setOption(db, "pageSize", pageSize)
 		setOption(db, "recentPostsSize", recentPostsSize)
 		setOption(db, "recentCommentsSize", recentCommentsSize)
+		setOption(db, "showDateArchives", showDateArchives)
+		setOption(db, "dateArchivesSize", dateArchivesSize)
 		setOption(db, "grokApiKey", grokApiKey)
 		setOption(db, "aiApiUrl", aiApiUrl)
 		setOption(db, "aiModel", aiModel)
@@ -822,6 +831,8 @@ func main() {
 			"PageSize":                   pageSize,
 			"RecentPostsSize":            recentPostsSize,
 			"RecentCommentsSize":         recentCommentsSize,
+			"ShowDateArchives":           showDateArchives,
+			"DateArchivesSize":           dateArchivesSize,
 			"GrokApiKey":                 grokApiKey,
 			"AiApiUrl":                   aiApiUrl,
 			"AiModel":                    aiModel,
