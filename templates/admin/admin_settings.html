@@ -757,11 +757,11 @@
                     </div>
                 </div>
 
-                <!-- AI 与系统底层 -->
+                <!-- AI 系统 -->
                 <div class="settings-section">
                     <div class="section-header">
                         <i class="fas fa-robot"></i>
-                        <h3>AI 系统与底层配置</h3>
+                        <h3>AI 系统</h3>
                     </div>
                     <div class="section-body">
                         <div class="form-grid">
@@ -785,8 +785,19 @@
                                     <i class="fas fa-vial" style="margin-right: 8px;"></i>检测
                                 </button>
                             </div>
-                            <div class="form-group full-width"
-                                style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e2e8f0;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 其它设置 -->
+                <div class="settings-section">
+                    <div class="section-header">
+                        <i class="fas fa-sliders-h"></i>
+                        <h3>其它设置</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
                                 <label>统计日志缓冲区</label>
                                 <span class="label-desc">异步统计队列大小。默认: 100。</span>
                                 <input type="number" name="statsBufferSize" value="{{.StatsBufferSize}}" required
