@@ -362,6 +362,174 @@
         .action-btn i {
             font-size: 1.5em;
         }
+
+        .info-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 10px;
+            color: #0984e3;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .info-link:hover {
+            color: #0873c4;
+        }
+
+        .shield-log-note {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #64748b;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.48);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-panel {
+            width: min(680px, 100%);
+            max-height: 80vh;
+            background: #ffffff;
+            border-radius: 18px;
+            border: 1px solid #dbe4ee;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 22px;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #1e293b;
+        }
+
+        .modal-close {
+            border: none;
+            background: #f8fafc;
+            color: #475569;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .modal-close:hover {
+            background: #e2e8f0;
+        }
+
+        .modal-body {
+            padding: 20px 22px 24px;
+            overflow: auto;
+        }
+
+        .shield-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .shield-log-table th,
+        .shield-log-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eef2f7;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .shield-log-table th {
+            color: #64748b;
+            font-weight: 700;
+            background: #f8fafc;
+        }
+
+        .shield-log-table td {
+            color: #1e293b;
+            font-family: monospace;
+        }
+
+        .shield-log-empty {
+            padding: 24px 12px;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        @media (max-width: 960px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                display: block;
+            }
+
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+            }
+
+            .top-bar {
+                position: static;
+                left: auto;
+                height: auto;
+                padding: 16px 20px;
+                justify-content: flex-end;
+            }
+
+            .content {
+                margin-left: 0;
+                margin-top: 0;
+                padding: 20px;
+            }
+
+            .page-header {
+                align-items: flex-start;
+            }
+
+            .system-info-list li {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-panel {
+                max-height: 88vh;
+            }
+
+            .shield-log-table {
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 
@@ -477,7 +645,9 @@
                             <li><span class="info-label">存储占用</span><span class="info-value">数据库: {{.DbSize}} / 附件:
                                     {{.UploadSize}} / 备份: {{.BackupSize}}</span></li>
                             <li><span class="info-label">Cloudflare 五秒盾</span><span class="info-value">{{.CfShieldStatus}}
-                                    {{if .CfShieldActive}}(自动关闭: {{.CfShieldUntil}}){{end}}</span></li>
+                                    {{if .CfShieldActive}}(自动关闭: {{.CfShieldUntil}}){{end}}
+                                    <a href="javascript:void(0);" id="cf-shield-log-trigger" class="info-link"><i class="fas fa-list-ul"></i> 查看日志</a>
+                                    <span class="shield-log-note">{{.CfShieldLatest}}，累计 {{.CfShieldLogCount}} 条</span></span></li>
                         </ul>
                     </div>
                 </div>
@@ -519,7 +689,59 @@
             </div>
         </div>
     </div>
+    <div class="modal-overlay" id="cf-shield-log-modal">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>Cloudflare 五秒盾最近日志</h3>
+                <button type="button" class="modal-close" id="cf-shield-log-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                {{if .CfShieldLogs}}
+                <table class="shield-log-table">
+                    <thead>
+                        <tr>
+                            <th>最高频 IP</th>
+                            <th>访问时间</th>
+                            <th>触发路径</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .CfShieldLogs}}
+                        <tr>
+                            <td>{{.IP}}</td>
+                            <td>{{.CreatedAt}}</td>
+                            <td>{{.Path}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{else}}
+                <div class="shield-log-empty">暂时还没有五秒盾相关日志。</div>
+                {{end}}
+            </div>
+        </div>
+    </div>
     <script>
+        const cfShieldLogModal = document.getElementById('cf-shield-log-modal');
+        const cfShieldLogTrigger = document.getElementById('cf-shield-log-trigger');
+        const cfShieldLogClose = document.getElementById('cf-shield-log-close');
+
+        if (cfShieldLogTrigger && cfShieldLogModal && cfShieldLogClose) {
+            cfShieldLogTrigger.addEventListener('click', function () {
+                cfShieldLogModal.classList.add('active');
+            });
+
+            cfShieldLogClose.addEventListener('click', function () {
+                cfShieldLogModal.classList.remove('active');
+            });
+
+            cfShieldLogModal.addEventListener('click', function (event) {
+                if (event.target === cfShieldLogModal) {
+                    cfShieldLogModal.classList.remove('active');
+                }
+            });
+        }
+
         document.getElementById('btn-restart-services').addEventListener('click', function () {
             const frontendServiceName = '{{.FrontendServiceName}}';
             const adminServiceName = '{{.AdminServiceName}}';

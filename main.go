@@ -60,6 +60,8 @@ type cloudflareShieldManager struct {
 	mu               sync.Mutex
 	currentMinuteKey int64
 	currentMinuteCnt int
+	currentMinuteIPs map[string]int
+	currentMinuteHit map[string]string
 	cfgLoadedAt      int64
 	threshold        int
 	apiToken         string
@@ -75,10 +77,12 @@ type cloudflareShieldManager struct {
 
 func newCloudflareShieldManager(db *sql.DB) *cloudflareShieldManager {
 	mgr := &cloudflareShieldManager{
-		db:              db,
-		threshold:       1000,
-		restoreLevel:    "medium",
-		autoDisableMins: 30,
+		db:               db,
+		threshold:        1000,
+		restoreLevel:     "medium",
+		autoDisableMins:  30,
+		currentMinuteIPs: make(map[string]int),
+		currentMinuteHit: make(map[string]string),
 	}
 
 	if getOption(db, "cfShieldActive", "0") == "1" {
@@ -125,14 +129,29 @@ func (m *cloudflareShieldManager) middleware(adminPath string) gin.HandlerFunc {
 		minuteKey := now / 60
 
 		needEnable := false
+		triggerIP := ""
+		triggerPath := ""
 
 		m.mu.Lock()
 		m.loadConfigLocked(now)
 		if m.currentMinuteKey != minuteKey {
 			m.currentMinuteKey = minuteKey
 			m.currentMinuteCnt = 0
+			m.currentMinuteIPs = make(map[string]int)
+			m.currentMinuteHit = make(map[string]string)
 		}
 		m.currentMinuteCnt++
+		ip := clientIPFromRequest(c)
+		if ip != "" {
+			m.currentMinuteIPs[ip]++
+			if _, ok := m.currentMinuteHit[ip]; !ok {
+				path := c.Request.URL.Path
+				if path == "" {
+					path = "/"
+				}
+				m.currentMinuteHit[ip] = path
+			}
+		}
 
 		if !m.shieldActive &&
 			!m.switching &&
@@ -140,20 +159,47 @@ func (m *cloudflareShieldManager) middleware(adminPath string) gin.HandlerFunc {
 			m.apiToken != "" &&
 			m.zoneID != "" &&
 			m.currentMinuteCnt > m.threshold {
+			triggerIP, triggerPath = m.topMinuteSourceLocked()
 			m.switching = true
 			needEnable = true
 		}
 		m.mu.Unlock()
 
 		if needEnable {
-			go m.enableShield()
+			go m.enableShield(triggerIP, triggerPath)
 		}
 
 		c.Next()
 	}
 }
 
-func (m *cloudflareShieldManager) enableShield() {
+func (m *cloudflareShieldManager) topMinuteSourceLocked() (string, string) {
+	var topIP string
+	var topPath string
+	maxHits := 0
+	for ip, hits := range m.currentMinuteIPs {
+		if hits > maxHits {
+			maxHits = hits
+			topIP = ip
+			topPath = m.currentMinuteHit[ip]
+		}
+	}
+	if topPath == "" {
+		topPath = "/"
+	}
+	return topIP, topPath
+}
+
+func clientIPFromRequest(c *gin.Context) string {
+	ip := strings.TrimSpace(c.GetHeader("CF-Connecting-IP"))
+	if ip != "" {
+		return ip
+	}
+
+	return strings.TrimSpace(c.ClientIP())
+}
+
+func (m *cloudflareShieldManager) enableShield(triggerIP, triggerPath string) {
 	now := time.Now().Unix()
 
 	m.mu.Lock()
@@ -182,6 +228,15 @@ func (m *cloudflareShieldManager) enableShield() {
 	setOption(m.db, "cfShieldActive", "1")
 	setOption(m.db, "cfShieldUntil", strconv.FormatInt(expiresAt, 10))
 	setOption(m.db, "cfShieldActivatedAt", strconv.FormatInt(now, 10))
+	if strings.TrimSpace(triggerIP) != "" {
+		if strings.TrimSpace(triggerPath) == "" {
+			triggerPath = "/"
+		}
+		_, err = m.db.Exec("INSERT INTO go_cf_shield_logs (ip, path, ua, created) VALUES (?, ?, ?, ?)", triggerIP, triggerPath, "threshold-trigger", now)
+		if err != nil {
+			log.Printf("Cloudflare 五秒盾触发日志写入失败: %v", err)
+		}
+	}
 
 	log.Printf("Cloudflare 五秒盾已开启，预计关闭时间: %s", time.Unix(expiresAt, 0).Format("2006-01-02 15:04:05"))
 
@@ -378,6 +433,16 @@ func startJanitor(db *sql.DB) {
 					log.Printf("Janitor: cleaned up %d old log records.", rows)
 				}
 			}
+
+			res, err = db.Exec("DELETE FROM go_cf_shield_logs WHERE created < ?", cutoff)
+			if err != nil {
+				log.Printf("Janitor shield log error: %v", err)
+			} else {
+				rows, _ := res.RowsAffected()
+				if rows > 0 {
+					log.Printf("Janitor: cleaned up %d old Cloudflare shield log records.", rows)
+				}
+			}
 		}
 		// 每小时检查一次
 		time.Sleep(1 * time.Hour)
@@ -536,10 +601,7 @@ func statsMiddleware(db *sql.DB, adminPath string) gin.HandlerFunc {
 			}
 
 			// 优先从 Cloudflare 变量获取 IP
-			ip := c.GetHeader("CF-Connecting-IP")
-			if ip == "" {
-				ip = c.ClientIP()
-			}
+			ip := clientIPFromRequest(c)
 
 			// 排除内网 IP 的统计（可选，如果你希望排除自己或内网网关的访问）
 			if strings.HasPrefix(ip, "172.") || strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "127.0.0.") {
@@ -646,10 +708,7 @@ func handleBeacon(c *gin.Context) {
 		return
 	}
 
-	ip := c.GetHeader("CF-Connecting-IP")
-	if ip == "" {
-		ip = c.ClientIP()
-	}
+	ip := clientIPFromRequest(c)
 
 	isBot := 0
 	if strings.HasPrefix(ip, "172.") || strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "127.0.0.") {
@@ -1564,8 +1623,16 @@ func initDB(db *sql.DB) {
 			"is_bot" INTEGER DEFAULT 0,
 			"created" INTEGER
 		)`,
+		`CREATE TABLE IF NOT EXISTS "go_cf_shield_logs" (
+			"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+			"ip" VARCHAR(64),
+			"path" VARCHAR(255),
+			"ua" VARCHAR(511),
+			"created" INTEGER
+		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_stats_created" ON "go_stats_logs" ("created")`,
 		`CREATE INDEX IF NOT EXISTS "idx_stats_bot" ON "go_stats_logs" ("is_bot")`,
+		`CREATE INDEX IF NOT EXISTS "idx_cf_shield_logs_created" ON "go_cf_shield_logs" ("created")`,
 	}
 
 	for _, s := range schema {

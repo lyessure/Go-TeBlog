@@ -118,6 +118,22 @@ func main() {
 		log.Fatal("Failed to create category settings table:", err)
 	}
 
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS go_cf_shield_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		ip VARCHAR(64),
+		path VARCHAR(255),
+		ua VARCHAR(511),
+		created INTEGER
+	)`)
+	if err != nil {
+		log.Fatal("Failed to create Cloudflare shield logs table:", err)
+	}
+
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_cf_shield_logs_created ON go_cf_shield_logs (created)`)
+	if err != nil {
+		log.Fatal("Failed to create Cloudflare shield logs index:", err)
+	}
+
 	applyConfiguredTimezone(db)
 
 	adminPath := getOption(db, "adminPath", "admin")
@@ -410,6 +426,34 @@ func main() {
 			retentionLabel = "历史累计"
 		}
 
+		type cfShieldLogItem struct {
+			IP        string
+			Path      string
+			CreatedAt string
+			UA        string
+		}
+
+		var cfShieldLogCount int
+		var latestCfShieldIP string
+		var latestCfShieldCreated int64
+		var cfShieldLogs []cfShieldLogItem
+
+		db.QueryRow("SELECT COUNT(*) FROM go_cf_shield_logs").Scan(&cfShieldLogCount)
+		db.QueryRow("SELECT COALESCE(ip, ''), COALESCE(created, 0) FROM go_cf_shield_logs ORDER BY created DESC, id DESC LIMIT 1").Scan(&latestCfShieldIP, &latestCfShieldCreated)
+
+		rows, err := db.Query("SELECT COALESCE(ip, ''), COALESCE(path, '/'), COALESCE(ua, ''), created FROM go_cf_shield_logs ORDER BY created DESC, id DESC LIMIT 10")
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var item cfShieldLogItem
+				var created int64
+				if err := rows.Scan(&item.IP, &item.Path, &item.UA, &created); err == nil {
+					item.CreatedAt = time.Unix(created, 0).Format("2006-01-02 15:04:05")
+					cfShieldLogs = append(cfShieldLogs, item)
+				}
+			}
+		}
+
 		// 数据库大小
 		dbFile, _ := os.Stat("blog.sqlite")
 		dbSize := "0 MB"
@@ -498,6 +542,7 @@ func main() {
 		cfShieldActive := getOption(db, "cfShieldActive", "0") == "1"
 		cfShieldStatus := "未激活"
 		cfShieldUntil := "未开启"
+		cfShieldLatest := "暂无拦截日志"
 		if cfShieldActive {
 			cfShieldStatus = "已开启"
 			untilUnix, err := strconv.ParseInt(strings.TrimSpace(getOption(db, "cfShieldUntil", "0")), 10, 64)
@@ -506,6 +551,9 @@ func main() {
 			} else {
 				cfShieldUntil = "已开启（未获取到关闭时间）"
 			}
+		}
+		if latestCfShieldIP != "" && latestCfShieldCreated > 0 {
+			cfShieldLatest = fmt.Sprintf("最近触发来源: %s / %s", latestCfShieldIP, time.Unix(latestCfShieldCreated, 0).Format("2006-01-02 15:04:05"))
 		}
 
 		c.HTML(http.StatusOK, "admin_dashboard.html", gin.H{
@@ -543,6 +591,9 @@ func main() {
 			"CfShieldActive":       cfShieldActive,
 			"CfShieldStatus":       cfShieldStatus,
 			"CfShieldUntil":        cfShieldUntil,
+			"CfShieldLogCount":     cfShieldLogCount,
+			"CfShieldLatest":       cfShieldLatest,
+			"CfShieldLogs":         cfShieldLogs,
 			"CfMinuteLimit":        getOption(db, "cfRequestLimitPerMinute", "1000"),
 			"CfAutoDisableMinutes": getOption(db, "cfShieldAutoDisableMinutes", "30"),
 		})
