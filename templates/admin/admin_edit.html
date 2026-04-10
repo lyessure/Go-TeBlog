@@ -87,7 +87,7 @@
             margin-left: 220px;
             min-height: 100vh;
             box-sizing: border-box;
-            padding-top: 80px;
+            padding-top: 65px;
         }
 
         .top-bar {
@@ -95,7 +95,7 @@
             top: 0;
             left: 220px;
             right: 0;
-            height: 60px;
+            height: 45px;
             background: #fff;
             box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
             display: flex;
@@ -126,12 +126,12 @@
             position: absolute;
             top: 100%;
             margin-top: 5px;
-            right: 0;
+            left: 0;
             background: #fff;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             border: 1px solid #e5e7eb;
             border-radius: 6px;
-            min-width: 160px;
+            min-width: 120px;
             display: none;
             flex-direction: column;
             padding: 5px 0;
@@ -148,7 +148,7 @@
             height: 15px;
         }
 
-        .user-menu:hover .dropdown {
+        .user-menu.open .dropdown {
             display: flex;
         }
 
@@ -573,6 +573,20 @@
             }
         }
     </script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const userMenu = document.querySelector('.user-menu');
+  if (userMenu) {
+    userMenu.addEventListener('click', function (e) {
+      e.stopPropagation();
+      userMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', function () {
+      userMenu.classList.remove('open');
+    });
+  }
+});
+</script>
 </body>
 
 </html>
