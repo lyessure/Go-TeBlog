@@ -788,11 +788,13 @@
                             </div>
                             <div class="form-group full-width">
                                 <label>AI 连通性检测</label>
-                                <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，使用下面输入框里的测试语检查评论过滤 AI 是否可调用。{{end}}</span>
-                                <input id="aiTestContent" type="text" class="full-width"
-                                    style="margin-top: 8px; font-family: inherit;"
-                                    placeholder="请输入要用于测试的评论内容"
-                                    value="Spring is a good time to simplify your setup (25% off this month">
+                                <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，使用下面下拉框里的测试语检查评论过滤 AI 是否可调用。{{end}}</span>
+                                <select id="aiTestContent" class="full-width"
+                                    style="margin-top: 8px; font-family: inherit;">
+                                    <option value="" selected disabled>请先选择测试语。第一条是垃圾评论，第二条是正常评论</option>
+                                    <option value="Spring is a good time to simplify your setup (25% off this month">Spring is a good time to simplify your setup (25% off this month</option>
+                                    <option value="Hello, nice to meet you">Hello, nice to meet you</option>
+                                </select>
                                 <button type="button" class="btn-secondary" id="aiTestBtn" style="margin-top: 12px;" {{if eq .UserGroup "visitor"}}disabled{{end}}>
                                     <i class="fas fa-vial" style="margin-right: 8px;"></i>检测
                                 </button>
