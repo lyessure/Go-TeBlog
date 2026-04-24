@@ -24,11 +24,36 @@
     <title>{{if .SearchQuery}}包含关键字 {{.SearchQuery}} 的文章 - {{end}}{{.Site.Title}}</title>
     {{if .Site.Keywords}}
     <meta name="keywords" content="{{.Site.Keywords}}">{{end}}
-    <link rel="stylesheet" href="/blog/usr/themes/default/normalize.css">
-    <link rel="stylesheet" href="/blog/usr/themes/default/grid.css">
-    <link rel="stylesheet" href="/blog/usr/themes/default/style.css">
-    <link rel="stylesheet" href="/blog/usr/themes/default/go-custom.css">
-    <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <link rel="stylesheet" href="{{.Site.ThemeBase}}/normalize.css">
+    <link rel="stylesheet" href="{{.Site.ThemeBase}}/grid.css">
+    <link rel="stylesheet" href="{{.Site.ThemeBase}}/style.css">
+    <link rel="stylesheet" href="{{.Site.ThemeBase}}/go-custom.css">
+    <link rel="stylesheet" href="{{.Site.ThemeBase}}/css/font-awesome.min.css">
+    <style>
+        :root,
+        :root[data-theme='dark'] {
+            --primary-color: {{.Site.Skin.PrimaryColor}};
+            --primary-hover: {{.Site.Skin.PrimaryHover}};
+            --success-color: {{.Site.Skin.SuccessColor}};
+            --text-primary: {{.Site.Skin.TextPrimary}};
+            --text-secondary: {{.Site.Skin.TextSecondary}};
+            --text-muted: {{.Site.Skin.TextMuted}};
+            --bg-primary: {{.Site.Skin.BgPrimary}};
+            --bg-secondary: {{.Site.Skin.BgSecondary}};
+            --bg-accent: {{.Site.Skin.BgAccent}};
+            --border-light: {{.Site.Skin.BorderLight}};
+            --header-bg: {{.Site.Skin.HeaderBg}};
+            --theme-btn-hover-bg: {{.Site.Skin.ThemeBtnHoverBg}};
+            --theme-btn-active-bg: {{.Site.Skin.ThemeBtnActiveBg}};
+            --radius: {{.Site.Skin.Radius}};
+            --layout-container-max: {{.Site.Skin.LayoutContainerMax}};
+            --layout-container-pad: {{.Site.Skin.LayoutContainerPad}};
+            --layout-column-gap: {{.Site.Skin.LayoutColumnGap}};
+            --layout-page-padding: {{.Site.Skin.LayoutPagePadding}};
+            --layout-post-padding: {{.Site.Skin.LayoutPostPadding}};
+            --layout-widget-padding: {{.Site.Skin.LayoutWidgetPadding}};
+        }
+    </style>
     <style>
         /* Custom styles to match the original if needed */
         .archive-list {
@@ -229,8 +254,8 @@
         </div>
     </footer>
 
-    <script src="/blog/usr/themes/default/js/mobile-nav.js"></script>
-    <script src="/blog/usr/themes/default/js/theme-mode.js"></script>
+    <script src="{{.Site.ThemeBase}}/js/mobile-nav.js"></script>
+    <script src="{{.Site.ThemeBase}}/js/theme-mode.js"></script>
     {{.Site.FooterCode}}
 </body>
 

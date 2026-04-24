@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>系统设置 - Go-TeBlog</title>
+    <title>{{if eq .ActiveSection "skin"}}皮肤设置{{else}}系统设置{{end}} - Go-TeBlog</title>
     <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
     <style>
         body {
@@ -191,6 +191,10 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             overflow: hidden;
             border: 1px solid #e2e8f0;
+        }
+
+        #skin-settings {
+            scroll-margin-top: 95px;
         }
 
         .section-header {
@@ -477,47 +481,12 @@
 </head>
 
 <body>
-    <div class="sidebar">
-        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
-
-        <div class="nav-label">核心控制</div>
-        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
-                class="fas fa-tachometer-alt"></i> 仪表盘</a>
-
-        <div class="nav-label">内容管理</div>
-        <a href="{{adminPath}}/posts"><i class="fas fa-file-alt"></i> 文章管理</a>
-        <a href="{{adminPath}}/categories"><i class="fas fa-list"></i> 分类管理</a>
-        <a href="{{adminPath}}/comments"><i class="fas fa-comments"></i> 评论管理</a>
-        <a href="{{adminPath}}/attachments"><i class="fas fa-paperclip"></i> 附件管理</a>
-
-        <div class="sidebar-divider"></div>
-
-        <div class="nav-label">系统设置</div>
-        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
-            用户管理</a>
-        <a href="{{adminPath}}/settings" class="active"><i class="fas fa-cog"></i> 系统设置</a>
-
-        <a href="{{adminPath}}/backups" {{if eq .Tab "backups" }}class="active" {{end}}><i class="fas fa-database"></i>
-            数据备份</a>
-
-        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
-    </div>
-
-    <div class="top-bar">
-        <div class="user-menu">
-            <img src="{{userGravatar .Username}}" alt="{{.Username}} avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #e2e8f0;">
-            <span>{{.Username}}</span>
-            <i class="fas fa-chevron-down" style="font-size: 0.8em;"></i>
-            <div class="dropdown">
-                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
-                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
-            </div>
-        </div>
-    </div>
+        {{template "admin_sidebar" .}}
+    {{template "admin_topbar" .}}
 
     <div class="content">
         <div class="settings-container">
-            <h1 style="margin-bottom: 30px; font-size: 1.8em;">系统设置</h1>
+            <h1 style="margin-bottom: 30px; font-size: 1.8em;">{{if eq .ActiveSection "skin"}}皮肤设置{{else}}系统设置{{end}}</h1>
 
             {{if .SuccessMessage}}
             <div class="alert alert-success">
@@ -526,7 +495,12 @@
             </div>
             {{end}}
 
+            {{if eq .ActiveSection "skin"}}
+            <form action="{{adminPath}}/settings/skin" method="POST">
+            {{else}}
             <form action="{{adminPath}}/settings" method="POST">
+                <input type="hidden" name="activeSection" value="{{.ActiveSection}}">
+                {{if ne .ActiveSection "skin"}}
                 <!-- 基础设置 -->
                 <div class="settings-section">
                     <div class="section-header">
@@ -645,6 +619,109 @@
                     </div>
                 </div>
 
+                {{end}}
+                {{end}}
+
+                {{if eq .ActiveSection "skin"}}
+                <!-- 皮肤设置 -->
+                <div class="settings-section" id="skin-settings">
+                    <div class="section-header">
+                        <i class="fas fa-paint-brush"></i>
+                        <h3>皮肤设置</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>皮肤目录</label>
+                                <span class="label-desc">对应 <code>/blog/usr/themes/</code> 下的目录名。</span>
+                                <input type="text" name="theme" value="{{.Skin.Theme}}" required placeholder="default">
+                            </div>
+                            <div class="form-group">
+                                <label>主色</label>
+                                <input type="text" name="primaryColor" value="{{.Skin.PrimaryColor}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>主色悬停</label>
+                                <input type="text" name="primaryHover" value="{{.Skin.PrimaryHover}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>成功色</label>
+                                <input type="text" name="successColor" value="{{.Skin.SuccessColor}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>文本主色</label>
+                                <input type="text" name="textPrimary" value="{{.Skin.TextPrimary}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>文本次色</label>
+                                <input type="text" name="textSecondary" value="{{.Skin.TextSecondary}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>文本弱化色</label>
+                                <input type="text" name="textMuted" value="{{.Skin.TextMuted}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>页面背景</label>
+                                <input type="text" name="bgPrimary" value="{{.Skin.BgPrimary}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>次级背景</label>
+                                <input type="text" name="bgSecondary" value="{{.Skin.BgSecondary}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>强调背景</label>
+                                <input type="text" name="bgAccent" value="{{.Skin.BgAccent}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>边框颜色</label>
+                                <input type="text" name="borderLight" value="{{.Skin.BorderLight}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>顶栏背景</label>
+                                <input type="text" name="headerBg" value="{{.Skin.HeaderBg}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>按钮悬停背景</label>
+                                <input type="text" name="themeBtnHoverBg" value="{{.Skin.ThemeBtnHoverBg}}" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label>按钮激活背景</label>
+                                <input type="text" name="themeBtnActiveBg" value="{{.Skin.ThemeBtnActiveBg}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>基础圆角</label>
+                                <input type="text" name="radius" value="{{.Skin.Radius}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>页面宽度</label>
+                                <input type="text" name="layoutContainerMax" value="{{.Skin.LayoutContainerMax}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>页面内边距</label>
+                                <input type="text" name="layoutContainerPad" value="{{.Skin.LayoutContainerPad}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>列间距</label>
+                                <input type="text" name="layoutColumnGap" value="{{.Skin.LayoutColumnGap}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>页面上下留白</label>
+                                <input type="text" name="layoutPagePadding" value="{{.Skin.LayoutPagePadding}}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>文章卡片内边距</label>
+                                <input type="text" name="layoutPostPadding" value="{{.Skin.LayoutPostPadding}}" required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label>侧边栏卡片内边距</label>
+                                <input type="text" name="layoutWidgetPadding" value="{{.Skin.LayoutWidgetPadding}}" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+
+                {{if ne .ActiveSection "skin"}}
                 <!-- 访问防护 -->
                 <div class="settings-section">
                     <div class="section-header" style="padding-top: 12px; padding-bottom: 12px;">
@@ -831,6 +908,13 @@
                         <i class="fas fa-save" style="margin-right: 8px; font-size: 0.9em; opacity: 0.9;"></i> 保存所有设置
                     </button>
                 </div>
+                {{else}}
+                <div class="btn-container">
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-save" style="margin-right: 8px; font-size: 0.9em; opacity: 0.9;"></i> 保存皮肤设置
+                    </button>
+                </div>
+                {{end}}
             </form>
         </div>
     </div>

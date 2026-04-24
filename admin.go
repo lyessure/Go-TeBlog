@@ -30,10 +30,94 @@ import (
 )
 
 var (
-	isBackingUp        bool
-	backupMutex        sync.Mutex
-	systemTimeLocation = time.Local
+	isBackingUp          bool
+	backupMutex          sync.Mutex
+	systemTimeLocation   = time.Local
+	skinThemeNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+	skinColorPattern     = regexp.MustCompile(`(?i)^(#[0-9a-f]{3}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\([0-9.,%\s/+-]+\)|hsla?\([0-9.,%\s/+-]+\)|transparent|inherit|initial|unset|currentColor|[a-z]+)$`)
+	skinLengthPattern    = regexp.MustCompile(`(?i)^(0|[0-9]+(?:\.[0-9]+)?)(px|rem|em|vw|vh|%)?$`)
 )
+
+type SkinConfig struct {
+	Theme               string
+	ThemeBase           string
+	PrimaryColor        string
+	PrimaryHover        string
+	SuccessColor        string
+	TextPrimary         string
+	TextSecondary       string
+	TextMuted           string
+	BgPrimary           string
+	BgSecondary         string
+	BgAccent            string
+	BorderLight         string
+	HeaderBg            string
+	ThemeBtnHoverBg     string
+	ThemeBtnActiveBg    string
+	Radius              string
+	LayoutContainerMax  string
+	LayoutContainerPad  string
+	LayoutColumnGap     string
+	LayoutPagePadding   string
+	LayoutPostPadding   string
+	LayoutWidgetPadding string
+}
+
+func getSkinConfig(db *sql.DB) SkinConfig {
+	theme := sanitizeThemeName(getOption(db, "theme", "default"), "default")
+	return SkinConfig{
+		Theme:               theme,
+		ThemeBase:           "/blog/usr/themes/" + theme,
+		PrimaryColor:        sanitizeSkinColor(getOption(db, "primaryColor", "#3b82f6"), "#3b82f6"),
+		PrimaryHover:        sanitizeSkinColor(getOption(db, "primaryHover", "#2563eb"), "#2563eb"),
+		SuccessColor:        sanitizeSkinColor(getOption(db, "successColor", "#10b981"), "#10b981"),
+		TextPrimary:         sanitizeSkinColor(getOption(db, "textPrimary", "#1f2937"), "#1f2937"),
+		TextSecondary:       sanitizeSkinColor(getOption(db, "textSecondary", "#6b7280"), "#6b7280"),
+		TextMuted:           sanitizeSkinColor(getOption(db, "textMuted", "#9ca3af"), "#9ca3af"),
+		BgPrimary:           sanitizeSkinColor(getOption(db, "bgPrimary", "#f3f4f6"), "#f3f4f6"),
+		BgSecondary:         sanitizeSkinColor(getOption(db, "bgSecondary", "#e5e7eb"), "#e5e7eb"),
+		BgAccent:            sanitizeSkinColor(getOption(db, "bgAccent", "#d1d5db"), "#d1d5db"),
+		BorderLight:         sanitizeSkinColor(getOption(db, "borderLight", "#c5c9d1"), "#c5c9d1"),
+		HeaderBg:            sanitizeSkinColor(getOption(db, "headerBg", "rgba(243, 244, 246, 0.8)"), "rgba(243, 244, 246, 0.8)"),
+		ThemeBtnHoverBg:     sanitizeSkinColor(getOption(db, "themeBtnHoverBg", "rgba(31, 41, 55, 0.06)"), "rgba(31, 41, 55, 0.06)"),
+		ThemeBtnActiveBg:    sanitizeSkinColor(getOption(db, "themeBtnActiveBg", "rgba(59, 130, 246, 0.14)"), "rgba(59, 130, 246, 0.14)"),
+		Radius:              sanitizeSkinLength(getOption(db, "radius", "8px"), "8px"),
+		LayoutContainerMax:  sanitizeSkinLength(getOption(db, "layoutContainerMax", "1000px"), "1000px"),
+		LayoutContainerPad:  sanitizeSkinLength(getOption(db, "layoutContainerPad", "15px"), "15px"),
+		LayoutColumnGap:     sanitizeSkinLength(getOption(db, "layoutColumnGap", "10px"), "10px"),
+		LayoutPagePadding:   sanitizeSkinLength(getOption(db, "layoutPagePadding", "15px"), "15px"),
+		LayoutPostPadding:   sanitizeSkinLength(getOption(db, "layoutPostPadding", "32px"), "32px"),
+		LayoutWidgetPadding: sanitizeSkinLength(getOption(db, "layoutWidgetPadding", "16px"), "16px"),
+	}
+}
+
+func sanitizeThemeName(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || !skinThemeNamePattern.MatchString(value) {
+		return fallback
+	}
+	return value
+}
+
+func sanitizeSkinColor(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || !skinColorPattern.MatchString(value) {
+		return fallback
+	}
+	return value
+}
+
+func sanitizeSkinLength(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	match := skinLengthPattern.FindStringSubmatch(value)
+	if match == nil {
+		return fallback
+	}
+	if match[1] == "0" || match[2] != "" {
+		return strings.ToLower(value)
+	}
+	return match[1] + "px"
+}
 
 func main() {
 	// Get executable path and change to its directory
@@ -716,7 +800,7 @@ func main() {
 		})
 	})
 
-	admin.GET("/settings", func(c *gin.Context) {
+	renderSettingsPage := func(c *gin.Context, activeSection, successMessage string) {
 		username, _ := c.Get("username")
 		adminPath, _ := c.Get("adminPath")
 
@@ -762,7 +846,9 @@ func main() {
 			"Username":                   username,
 			"UserGroup":                  group,
 			"Tab":                        "settings",
+			"ActiveSection":              activeSection,
 			"AdminPath":                  adminPath,
+			"Skin":                       getSkinConfig(db),
 			"SiteTitle":                  getOption(db, "title", "我的博客"),
 			"SiteDescription":            getOption(db, "description", "基于 Go 语言的极速博客系统"),
 			"SiteUrl":                    getOption(db, "siteUrl", "http://localhost:8190"),
@@ -800,12 +886,93 @@ func main() {
 			"CfEnvConnected":             cfEnvConnected,
 			"CfEnvStatus":                cfEnvStatus,
 			"AllCategories":              categories,
+			"SuccessMessage":             successMessage,
 		})
+	}
+
+	admin.GET("/settings", func(c *gin.Context) {
+		renderSettingsPage(c, "settings", "")
+	})
+
+	admin.GET("/settings/skin", func(c *gin.Context) {
+		renderSettingsPage(c, "skin", "")
+	})
+
+	admin.POST("/settings/skin", writeProtectMiddleware, func(c *gin.Context) {
+		activeSection := "skin"
+		theme := strings.TrimSpace(c.PostForm("theme"))
+		primaryColor := strings.TrimSpace(c.PostForm("primaryColor"))
+		primaryHover := strings.TrimSpace(c.PostForm("primaryHover"))
+		successColor := strings.TrimSpace(c.PostForm("successColor"))
+		textPrimary := strings.TrimSpace(c.PostForm("textPrimary"))
+		textSecondary := strings.TrimSpace(c.PostForm("textSecondary"))
+		textMuted := strings.TrimSpace(c.PostForm("textMuted"))
+		bgPrimary := strings.TrimSpace(c.PostForm("bgPrimary"))
+		bgSecondary := strings.TrimSpace(c.PostForm("bgSecondary"))
+		bgAccent := strings.TrimSpace(c.PostForm("bgAccent"))
+		borderLight := strings.TrimSpace(c.PostForm("borderLight"))
+		headerBg := strings.TrimSpace(c.PostForm("headerBg"))
+		themeBtnHoverBg := strings.TrimSpace(c.PostForm("themeBtnHoverBg"))
+		themeBtnActiveBg := strings.TrimSpace(c.PostForm("themeBtnActiveBg"))
+		radius := strings.TrimSpace(c.PostForm("radius"))
+		layoutContainerMax := strings.TrimSpace(c.PostForm("layoutContainerMax"))
+		layoutContainerPad := strings.TrimSpace(c.PostForm("layoutContainerPad"))
+		layoutColumnGap := strings.TrimSpace(c.PostForm("layoutColumnGap"))
+		layoutPagePadding := strings.TrimSpace(c.PostForm("layoutPagePadding"))
+		layoutPostPadding := strings.TrimSpace(c.PostForm("layoutPostPadding"))
+		layoutWidgetPadding := strings.TrimSpace(c.PostForm("layoutWidgetPadding"))
+		if theme == "" {
+			theme = "default"
+		}
+		if radius == "" {
+			radius = "8px"
+		}
+		if layoutContainerMax == "" {
+			layoutContainerMax = "1000px"
+		}
+		if layoutContainerPad == "" {
+			layoutContainerPad = "15px"
+		}
+		if layoutColumnGap == "" {
+			layoutColumnGap = "10px"
+		}
+		if layoutPagePadding == "" {
+			layoutPagePadding = "15px"
+		}
+		if layoutPostPadding == "" {
+			layoutPostPadding = "32px"
+		}
+		if layoutWidgetPadding == "" {
+			layoutWidgetPadding = "16px"
+		}
+
+		setOption(db, "theme", theme)
+		setOption(db, "primaryColor", primaryColor)
+		setOption(db, "primaryHover", primaryHover)
+		setOption(db, "successColor", successColor)
+		setOption(db, "textPrimary", textPrimary)
+		setOption(db, "textSecondary", textSecondary)
+		setOption(db, "textMuted", textMuted)
+		setOption(db, "bgPrimary", bgPrimary)
+		setOption(db, "bgSecondary", bgSecondary)
+		setOption(db, "bgAccent", bgAccent)
+		setOption(db, "borderLight", borderLight)
+		setOption(db, "headerBg", headerBg)
+		setOption(db, "themeBtnHoverBg", themeBtnHoverBg)
+		setOption(db, "themeBtnActiveBg", themeBtnActiveBg)
+		setOption(db, "radius", radius)
+		setOption(db, "layoutContainerMax", layoutContainerMax)
+		setOption(db, "layoutContainerPad", layoutContainerPad)
+		setOption(db, "layoutColumnGap", layoutColumnGap)
+		setOption(db, "layoutPagePadding", layoutPagePadding)
+		setOption(db, "layoutPostPadding", layoutPostPadding)
+		setOption(db, "layoutWidgetPadding", layoutWidgetPadding)
+
+		renderSettingsPage(c, activeSection, "皮肤设置保存成功")
 	})
 
 	admin.POST("/settings", writeProtectMiddleware, func(c *gin.Context) {
-		username, _ := c.Get("username")
-		curAdminPath, _ := c.Get("adminPath")
+		activeSection := c.DefaultPostForm("activeSection", "settings")
 		title := c.PostForm("title")
 		description := c.PostForm("description")
 		pageSize := c.PostForm("pageSize")
@@ -903,70 +1070,7 @@ func main() {
 			successMsg = "设置保存成功，后台路径已更新（重启后生效）"
 		}
 
-		var categories []map[string]interface{}
-		rows, _ := db.Query("SELECT mid, name FROM typecho_metas WHERE type='category' ORDER BY \"order\" ASC, mid ASC")
-		if rows != nil {
-			defer rows.Close()
-			for rows.Next() {
-				var mid int
-				var name string
-				rows.Scan(&mid, &name)
-				categories = append(categories, map[string]interface{}{
-					"Mid":  mid,
-					"Name": name,
-				})
-			}
-		}
-		cfEnvConnected := isCloudflareRequest(c)
-		cfEnvStatus := "当前未接入 Cloudflare"
-		if cfEnvConnected {
-			cfEnvStatus = "当前已接入 Cloudflare"
-		}
-
-		c.HTML(http.StatusOK, "admin_settings.html", gin.H{
-			"Username":                   username,
-			"UserGroup":                  c.MustGet("userGroup"),
-			"Tab":                        "settings",
-			"AdminPath":                  curAdminPath,
-			"SiteTitle":                  title,
-			"SiteDescription":            description,
-			"PageSize":                   pageSize,
-			"RecentPostsSize":            recentPostsSize,
-			"RecentCommentsSize":         recentCommentsSize,
-			"ShowDateArchives":           showDateArchives,
-			"DateArchivesSize":           dateArchivesSize,
-			"GrokApiKey":                 grokApiKey,
-			"AiApiUrl":                   aiApiUrl,
-			"AiModel":                    aiModel,
-			"AiThreshold":                aiThreshold,
-			"CommentAiDetection":         commentAiDetection,
-			"SessionTimeout":             sessionTimeout,
-			"SiteKeywords":               keywords,
-			"FooterCode":                 footerCode,
-			"DefaultCategory":            defaultCategory,
-			"SiteUrl":                    siteUrl,
-			"Timezone":                   timezone,
-			"ConfigAdminPath":            newAdminPath,
-			"FrontendServiceName":        frontendServiceName,
-			"AdminServiceName":           adminServiceName,
-			"CommentAudit":               commentAudit,
-			"CommentFailClosed":          commentFailClosed,
-			"StatsBufferSize":            statsBufferSize,
-			"LogRetentionDays":           logRetentionDays,
-			"CommentLimitIP":             commentLimitIP,
-			"CommentLimitGlobal":         commentLimitGlobal,
-			"CommentsEnabled":            commentsEnabled,
-			"CfRequestLimitPerMinute":    cfRequestLimitPerMinute,
-			"CfApiToken":                 cfApiToken,
-			"CfAuthEmail":                cfAuthEmail,
-			"CfZoneID":                   cfZoneID,
-			"CfRestoreSecurityLevel":     cfRestoreSecurityLevel,
-			"CfShieldAutoDisableMinutes": cfShieldAutoDisableMinutes,
-			"CfEnvConnected":             cfEnvConnected,
-			"CfEnvStatus":                cfEnvStatus,
-			"AllCategories":              categories,
-			"SuccessMessage":             successMsg,
-		})
+		renderSettingsPage(c, activeSection, successMsg)
 	})
 
 	admin.POST("/settings/ai-test", writeProtectMiddleware, func(c *gin.Context) {

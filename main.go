@@ -40,6 +40,9 @@ type statsLog struct {
 var statsChan chan statsLog
 var statsWG sync.WaitGroup
 var systemTimeLocation = time.Local
+var skinThemeNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+var skinColorPattern = regexp.MustCompile(`(?i)^(#[0-9a-f]{3}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\([0-9.,%\s/+-]+\)|hsla?\([0-9.,%\s/+-]+\)|transparent|inherit|initial|unset|currentColor|[a-z]+)$`)
+var skinLengthPattern = regexp.MustCompile(`(?i)^(0|[0-9]+(?:\.[0-9]+)?)(px|rem|em|vw|vh|%)?$`)
 
 type commentAttemptLimiter struct {
 	mu       sync.Mutex
@@ -492,6 +495,31 @@ type Tag struct {
 	Slug string
 }
 
+type SkinConfig struct {
+	Theme               string
+	ThemeBase           string
+	PrimaryColor        string
+	PrimaryHover        string
+	SuccessColor        string
+	TextPrimary         string
+	TextSecondary       string
+	TextMuted           string
+	BgPrimary           string
+	BgSecondary         string
+	BgAccent            string
+	BorderLight         string
+	HeaderBg            string
+	ThemeBtnHoverBg     string
+	ThemeBtnActiveBg    string
+	Radius              string
+	LayoutContainerMax  string
+	LayoutContainerPad  string
+	LayoutColumnGap     string
+	LayoutPagePadding   string
+	LayoutPostPadding   string
+	LayoutWidgetPadding string
+}
+
 type PostDetailData struct {
 	Site            SiteInfo
 	Post            Post
@@ -510,6 +538,8 @@ type SiteInfo struct {
 	Description string
 	Keywords    string
 	Theme       string
+	ThemeBase   string
+	Skin        SkinConfig
 	SiteUrl     string
 	FooterCode  template.HTML
 }
@@ -1678,14 +1708,73 @@ func initDB(db *sql.DB) {
 }
 
 func getSiteInfo(db *sql.DB) SiteInfo {
+	skin := getSkinConfig(db)
 	return SiteInfo{
 		Title:       getOption(db, "title", "我的 Go 博客"),
 		Description: getOption(db, "description", "基于 Go 语言的极速博客系统"),
 		Keywords:    getOption(db, "keywords", ""),
-		Theme:       getOption(db, "theme", "default"),
+		Theme:       skin.Theme,
+		ThemeBase:   skin.ThemeBase,
+		Skin:        skin,
 		SiteUrl:     getOption(db, "siteUrl", "http://localhost:8190"),
 		FooterCode:  template.HTML(getOption(db, "footerCode", "")),
 	}
+}
+
+func getSkinConfig(db *sql.DB) SkinConfig {
+	theme := sanitizeThemeName(getOption(db, "theme", "default"), "default")
+	return SkinConfig{
+		Theme:               theme,
+		ThemeBase:           "/blog/usr/themes/" + theme,
+		PrimaryColor:        sanitizeSkinColor(getOption(db, "primaryColor", "#3b82f6"), "#3b82f6"),
+		PrimaryHover:        sanitizeSkinColor(getOption(db, "primaryHover", "#2563eb"), "#2563eb"),
+		SuccessColor:        sanitizeSkinColor(getOption(db, "successColor", "#10b981"), "#10b981"),
+		TextPrimary:         sanitizeSkinColor(getOption(db, "textPrimary", "#1f2937"), "#1f2937"),
+		TextSecondary:       sanitizeSkinColor(getOption(db, "textSecondary", "#6b7280"), "#6b7280"),
+		TextMuted:           sanitizeSkinColor(getOption(db, "textMuted", "#9ca3af"), "#9ca3af"),
+		BgPrimary:           sanitizeSkinColor(getOption(db, "bgPrimary", "#f3f4f6"), "#f3f4f6"),
+		BgSecondary:         sanitizeSkinColor(getOption(db, "bgSecondary", "#e5e7eb"), "#e5e7eb"),
+		BgAccent:            sanitizeSkinColor(getOption(db, "bgAccent", "#d1d5db"), "#d1d5db"),
+		BorderLight:         sanitizeSkinColor(getOption(db, "borderLight", "#c5c9d1"), "#c5c9d1"),
+		HeaderBg:            sanitizeSkinColor(getOption(db, "headerBg", "rgba(243, 244, 246, 0.8)"), "rgba(243, 244, 246, 0.8)"),
+		ThemeBtnHoverBg:     sanitizeSkinColor(getOption(db, "themeBtnHoverBg", "rgba(31, 41, 55, 0.06)"), "rgba(31, 41, 55, 0.06)"),
+		ThemeBtnActiveBg:    sanitizeSkinColor(getOption(db, "themeBtnActiveBg", "rgba(59, 130, 246, 0.14)"), "rgba(59, 130, 246, 0.14)"),
+		Radius:              sanitizeSkinLength(getOption(db, "radius", "8px"), "8px"),
+		LayoutContainerMax:  sanitizeSkinLength(getOption(db, "layoutContainerMax", "1000px"), "1000px"),
+		LayoutContainerPad:  sanitizeSkinLength(getOption(db, "layoutContainerPad", "15px"), "15px"),
+		LayoutColumnGap:     sanitizeSkinLength(getOption(db, "layoutColumnGap", "10px"), "10px"),
+		LayoutPagePadding:   sanitizeSkinLength(getOption(db, "layoutPagePadding", "15px"), "15px"),
+		LayoutPostPadding:   sanitizeSkinLength(getOption(db, "layoutPostPadding", "32px"), "32px"),
+		LayoutWidgetPadding: sanitizeSkinLength(getOption(db, "layoutWidgetPadding", "16px"), "16px"),
+	}
+}
+
+func sanitizeThemeName(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || !skinThemeNamePattern.MatchString(value) {
+		return fallback
+	}
+	return value
+}
+
+func sanitizeSkinColor(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || !skinColorPattern.MatchString(value) {
+		return fallback
+	}
+	return value
+}
+
+func sanitizeSkinLength(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	match := skinLengthPattern.FindStringSubmatch(value)
+	if match == nil {
+		return fallback
+	}
+	if match[1] == "0" || match[2] != "" {
+		return strings.ToLower(value)
+	}
+	return match[1] + "px"
 }
 
 func buildSitemapEntries(db *sql.DB, req *http.Request) []sitemapURL {

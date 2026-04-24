@@ -14,6 +14,12 @@
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --radius: 8px;
+    --layout-container-max: 1000px;
+    --layout-container-pad: 15px;
+    --layout-column-gap: 10px;
+    --layout-page-padding: 15px;
+    --layout-post-padding: 32px;
+    --layout-widget-padding: 16px;
 }
 
 :root[data-theme='light'] {
@@ -47,7 +53,7 @@ body {
     font-size: 14px;
     line-height: 1.5;
     margin: 0;
-    padding: 15px 0;
+    padding: var(--layout-page-padding) 0;
 }
 
 a {
@@ -187,12 +193,12 @@ textarea {
 
 
 #header {
-    padding: 15px 0;
+    padding: var(--layout-page-padding) 0;
     border-bottom: 1px solid var(--border-light);
     background: var(--header-bg);
     backdrop-filter: blur(10px);
     border-radius: var(--radius);
-    margin-bottom: 15px;
+    margin-bottom: var(--layout-page-padding);
     box-shadow: var(--shadow-md);
 }
 
@@ -392,7 +398,7 @@ textarea {
     margin: 10px 0;
     border-radius: var(--radius);
     box-shadow: var(--shadow-md);
-    padding: 32px;
+    padding: var(--layout-post-padding);
     border-bottom: none;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -669,7 +675,7 @@ textarea {
 .widget {
     margin-bottom: 12px;
     background: var(--bg-primary);
-    padding: 16px;
+    padding: var(--layout-widget-padding);
     border-radius: var(--radius);
     box-shadow: var(--shadow-md);
     border: 1px solid var(--border-light);
@@ -790,28 +796,28 @@ textarea {
 
 
 .container {
-    max-width: 1000px !important;
-    padding-left: 15px;
-    padding-right: 15px;
+    max-width: var(--layout-container-max) !important;
+    padding-left: var(--layout-container-pad);
+    padding-right: var(--layout-container-pad);
 }
 
 .row {
-    margin-right: -5px;
-    margin-left: -5px;
+    margin-right: calc(var(--layout-column-gap) / -2);
+    margin-left: calc(var(--layout-column-gap) / -2);
 }
 
 .row>[class*="col-"] {
-    padding-right: 5px;
-    padding-left: 5px;
+    padding-right: calc(var(--layout-column-gap) / 2);
+    padding-left: calc(var(--layout-column-gap) / 2);
 }
 
 /* 主内容区和侧边栏间距优化 */
 #main {
-    padding-right: 5px;
+    padding-right: calc(var(--layout-column-gap) / 2);
 }
 
 #secondary {
-    padding-left: 5px;
+    padding-left: calc(var(--layout-column-gap) / 2);
 }
 
 

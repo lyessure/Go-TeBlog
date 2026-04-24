@@ -491,49 +491,9 @@
 </head>
 
 <body>
-    <div class="sidebar">
-        <h3><i class="fas fa-bolt"></i> 管理后台</h3>
+        {{template "admin_sidebar" .}}
+    {{template "admin_topbar" .}}
 
-        <div class="nav-label">核心控制</div>
-        <a href="{{adminPath}}/dashboard" {{if eq .Tab "dashboard" }}class="active" {{end}}><i
-                class="fas fa-tachometer-alt"></i> 仪表盘</a>
-
-        <div class="nav-label">内容管理</div>
-        <a href="{{adminPath}}/posts" {{if eq .Tab "posts" }}class="active" {{end}}><i class="fas fa-file-alt"></i>
-            文章管理</a>
-        <a href="{{adminPath}}/categories" {{if eq .Tab "categories" }}class="active" {{end}}><i
-                class="fas fa-list"></i>
-            分类管理</a>
-        <a href="{{adminPath}}/comments" {{if eq .Tab "comments" }}class="active" {{end}}><i
-                class="fas fa-comments"></i>
-            评论管理</a>
-        <a href="{{adminPath}}/attachments"><i class="fas fa-paperclip"></i> 附件管理</a>
-
-        <div class="sidebar-divider"></div>
-
-        <div class="nav-label">系统设置</div>
-        <a href="{{adminPath}}/users" {{if eq .Tab "users" }}class="active" {{end}}><i class="fas fa-users"></i>
-            用户管理</a>
-        <a href="{{adminPath}}/settings" {{if eq .Tab "settings" }}class="active" {{end}}><i class="fas fa-cog"></i>
-            系统设置</a>
-
-        <a href="{{adminPath}}/backups" {{if eq .Tab "backups" }}class="active" {{end}}><i class="fas fa-database"></i>
-            数据备份</a>
-
-        <a href="/blog" style="margin-top: auto;" target="_blank"><i class="fas fa-external-link-alt"></i> 访问前台</a>
-    </div>
-
-    <div class="top-bar">
-        <div class="user-menu">
-            <img src="{{userGravatar .Username}}" alt="{{.Username}} avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: #e2e8f0;">
-            <span>{{.Username}}</span>
-            <i class="fas fa-chevron-down" style="font-size: 0.8em; color: #9ca3af;"></i>
-            <div class="dropdown">
-                <a href="{{adminPath}}/profile"><i class="fas fa-key"></i> 修改密码</a>
-                <a href="{{adminPath}}/logout"><i class="fas fa-sign-out-alt"></i> 登出后台</a>
-            </div>
-        </div>
-    </div>
     <div class="content">
         <h2>评论管理</h2>
         <table>

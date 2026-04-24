@@ -49,4 +49,6 @@ static/google*.html
 static/clash.yml
 static/sy.html
 static/robots.txt
+.codex
+**/.codex
 AGENTS.md
