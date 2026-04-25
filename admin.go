@@ -38,6 +38,13 @@ var (
 	skinLengthPattern    = regexp.MustCompile(`(?i)^(0|[0-9]+(?:\.[0-9]+)?)(px|rem|em|vw|vh|%)?$`)
 )
 
+type cloudflareAccessLogItem struct {
+	Datetime string `json:"datetime"`
+	Method   string `json:"method"`
+	URL      string `json:"url"`
+	Status   int    `json:"status"`
+}
+
 type SkinConfig struct {
 	Theme               string
 	ThemeBase           string
@@ -556,6 +563,7 @@ func main() {
 		type cfShieldLogItem struct {
 			IP        string
 			Path      string
+			Created   int64
 			CreatedAt string
 			UA        string
 		}
@@ -575,6 +583,7 @@ func main() {
 				var item cfShieldLogItem
 				var created int64
 				if err := rows.Scan(&item.IP, &item.Path, &item.UA, &created); err == nil {
+					item.Created = created
 					item.CreatedAt = time.Unix(created, 0).Format("2006-01-02 15:04:05")
 					cfShieldLogs = append(cfShieldLogs, item)
 				}
@@ -684,50 +693,50 @@ func main() {
 		}
 
 		c.HTML(http.StatusOK, "admin_dashboard.html", gin.H{
-			"Username":             username,
-			"UserGroup":            group,
-			"Tab":                  "dashboard",
-			"AdminPath":            adminPath,
-			"FrontendServiceName":  frontendServiceName,
-			"AdminServiceName":     adminServiceName,
-			"PostCount":            postCount,
-			"CommentCount":         commentCount,
-			"RecentPostCount":      recentPostCount,
-			"RecentCommentCount":   recentCommentCount,
-			"AttachmentCount":      attachmentCount,
+			"Username":              username,
+			"UserGroup":             group,
+			"Tab":                   "dashboard",
+			"AdminPath":             adminPath,
+			"FrontendServiceName":   frontendServiceName,
+			"AdminServiceName":      adminServiceName,
+			"PostCount":             postCount,
+			"CommentCount":          commentCount,
+			"RecentPostCount":       recentPostCount,
+			"RecentCommentCount":    recentCommentCount,
+			"AttachmentCount":       attachmentCount,
 			"RecentAttachmentCount": recentAttachmentCount,
-			"TodayPV":              todayPV,
-			"TodayIP":              todayHumanIP,
-			"TodayBotIP":           todayBotIP,
-			"TotalPV":              totalHumanPV,
-			"TotalIP":              totalHumanIP,
-			"TodayBotPV":           todayBotPV,
-			"TotalBotPV":           totalBotPV,
-			"TotalBotIP":           totalBotIP,
-			"VisitorTrendLabels":   template.JS(visitorTrendLabelsJSON),
-			"HumanVisitorTrend":    template.JS(humanVisitorTrendJSON),
-			"BotVisitorTrend":      template.JS(botVisitorTrendJSON),
-			"VisitorTrendDays":     trendDays,
-			"RetentionLabel":       retentionLabel,
-			"DbSize":               dbSize,
-			"MemUsed":              memUsed + " / " + memFree,
-			"GoVersion":            runtime.Version(),
-			"OS":                   runtime.GOOS,
-			"Arch":                 runtime.GOARCH,
-			"CPUs":                 runtime.NumCPU(),
-			"TotalMem":             totalMem,
-			"UploadSize":           fmt.Sprintf("%.2f MB", getDirSize("usr/uploads")),
-			"BackupSize":           fmt.Sprintf("%.2f MB", getDirSize("backups")),
-			"DiskFree":             diskFree,
-			"SysLoad":              sysLoad,
-			"CfShieldActive":       cfShieldActive,
-			"CfShieldStatus":       cfShieldStatus,
-			"CfShieldUntil":        cfShieldUntil,
-			"CfShieldLogCount":     cfShieldLogCount,
-			"CfShieldLatest":       cfShieldLatest,
-			"CfShieldLogs":         cfShieldLogs,
-			"CfMinuteLimit":        getOption(db, "cfRequestLimitPerMinute", "1000"),
-			"CfAutoDisableMinutes": getOption(db, "cfShieldAutoDisableMinutes", "30"),
+			"TodayPV":               todayPV,
+			"TodayIP":               todayHumanIP,
+			"TodayBotIP":            todayBotIP,
+			"TotalPV":               totalHumanPV,
+			"TotalIP":               totalHumanIP,
+			"TodayBotPV":            todayBotPV,
+			"TotalBotPV":            totalBotPV,
+			"TotalBotIP":            totalBotIP,
+			"VisitorTrendLabels":    template.JS(visitorTrendLabelsJSON),
+			"HumanVisitorTrend":     template.JS(humanVisitorTrendJSON),
+			"BotVisitorTrend":       template.JS(botVisitorTrendJSON),
+			"VisitorTrendDays":      trendDays,
+			"RetentionLabel":        retentionLabel,
+			"DbSize":                dbSize,
+			"MemUsed":               memUsed + " / " + memFree,
+			"GoVersion":             runtime.Version(),
+			"OS":                    runtime.GOOS,
+			"Arch":                  runtime.GOARCH,
+			"CPUs":                  runtime.NumCPU(),
+			"TotalMem":              totalMem,
+			"UploadSize":            fmt.Sprintf("%.2f MB", getDirSize("usr/uploads")),
+			"BackupSize":            fmt.Sprintf("%.2f MB", getDirSize("backups")),
+			"DiskFree":              diskFree,
+			"SysLoad":               sysLoad,
+			"CfShieldActive":        cfShieldActive,
+			"CfShieldStatus":        cfShieldStatus,
+			"CfShieldUntil":         cfShieldUntil,
+			"CfShieldLogCount":      cfShieldLogCount,
+			"CfShieldLatest":        cfShieldLatest,
+			"CfShieldLogs":          cfShieldLogs,
+			"CfMinuteLimit":         getOption(db, "cfRequestLimitPerMinute", "1000"),
+			"CfAutoDisableMinutes":  getOption(db, "cfShieldAutoDisableMinutes", "30"),
 		})
 	})
 
@@ -1069,6 +1078,76 @@ func main() {
 		}
 
 		renderSettingsPage(c, activeSection, successMsg)
+	})
+
+	admin.GET("/dashboard/cloudflare-access-logs", func(c *gin.Context) {
+		ip := strings.TrimSpace(c.Query("ip"))
+		created, err := strconv.ParseInt(strings.TrimSpace(c.Query("created")), 10, 64)
+		if ip == "" || err != nil || created <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"ok":      false,
+				"message": "查询参数不完整。",
+			})
+			return
+		}
+
+		apiToken := strings.TrimSpace(getOption(db, "cfApiToken", ""))
+		authEmail := strings.TrimSpace(getOption(db, "cfAuthEmail", ""))
+		zoneID := strings.TrimSpace(getOption(db, "cfZoneID", ""))
+		if apiToken == "" || zoneID == "" {
+			c.JSON(http.StatusOK, gin.H{
+				"ok":      false,
+				"message": "当前系统未设置 Cloudflare API Token 或 Zone ID。",
+			})
+			return
+		}
+
+		logs, err := queryCloudflareAccessLogs(apiToken, authEmail, zoneID, ip, created)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"ok":      false,
+				"message": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ok":   true,
+			"logs": logs,
+		})
+	})
+
+	admin.POST("/dashboard/cloudflare-access-analysis", func(c *gin.Context) {
+		var req struct {
+			Logs []cloudflareAccessLogItem `json:"logs"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"ok":      false,
+				"message": "日志参数不完整。",
+			})
+			return
+		}
+		if len(req.Logs) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"ok":       true,
+				"analysis": "当前没有可分析的访问记录。",
+			})
+			return
+		}
+
+		aiURL := strings.TrimSpace(getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"))
+		aiKey := strings.TrimSpace(getOption(db, "grokApiKey", ""))
+		aiModel := strings.TrimSpace(getOption(db, "aiModel", ""))
+		analysis, err := analyzeCloudflareAttackType(aiKey, aiURL, aiModel, req.Logs)
+		if err != nil {
+			analysis = "AI 分析失败：" + err.Error()
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"ok":       true,
+			"analysis": analysis,
+		})
 	})
 
 	admin.POST("/settings/ai-test", writeProtectMiddleware, func(c *gin.Context) {
@@ -2524,6 +2603,14 @@ func stripThinkingOutput(content string) string {
 	return strings.TrimSpace(cleaned)
 }
 
+func compactAIText(content string) string {
+	cleaned := stripThinkingOutput(content)
+	if idx := strings.IndexAny(cleaned, "\r\n"); idx >= 0 {
+		cleaned = cleaned[:idx]
+	}
+	return strings.TrimSpace(cleaned)
+}
+
 func extractSpamScore(content string) (int, bool) {
 	cleaned := stripThinkingOutput(content)
 	scoreRE := regexp.MustCompile(`\b([0-9])\b`)
@@ -2538,6 +2625,75 @@ func extractSpamScore(content string) (int, bool) {
 	}
 
 	return score, true
+}
+
+func callAIChatCompletionText(apiKey, apiURL string, requestData map[string]interface{}) (string, error) {
+	if apiKey == "" || apiURL == "" {
+		return "", fmt.Errorf("AI 配置缺失：请填写 AI API URL 和 AI API Key")
+	}
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return "", fmt.Errorf("AI 请求组装失败: %w", err)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("AI 请求创建失败: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("AI 请求发送失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode != http.StatusOK {
+		detail := strings.TrimSpace(string(body))
+		if detail != "" {
+			return "", fmt.Errorf("AI 接口返回状态 %d: %s", resp.StatusCode, detail)
+		}
+		return "", fmt.Errorf("AI 接口返回状态 %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content any `json:"content"`
+			} `json:"message"`
+			Text string `json:"text"`
+		} `json:"choices"`
+		OutputText string `json:"output_text"`
+		Text       string `json:"text"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("AI 响应解析失败: %w; 原始返回: %s", err, strings.TrimSpace(string(body)))
+	}
+
+	content := ""
+	if len(result.Choices) > 0 {
+		if s, ok := result.Choices[0].Message.Content.(string); ok {
+			content = strings.TrimSpace(s)
+		}
+		if content == "" {
+			content = strings.TrimSpace(result.Choices[0].Text)
+		}
+	}
+	if content == "" {
+		content = strings.TrimSpace(result.OutputText)
+	}
+	if content == "" {
+		content = strings.TrimSpace(result.Text)
+	}
+	if content == "" {
+		return "", fmt.Errorf("AI 响应为空，原始返回: %s", strings.TrimSpace(string(body)))
+	}
+
+	return compactAIText(content), nil
 }
 
 func checkSpamAITestComment(words string, apiKey string, apiURL string, model string) (int, error) {
@@ -2557,66 +2713,176 @@ func checkSpamAITestComment(words string, apiKey string, apiURL string, model st
 		"temperature": 0,
 	}
 
-	jsonData, err := json.Marshal(requestData)
+	content, err := callAIChatCompletionText(apiKey, apiURL, requestData)
 	if err != nil {
-		return 0, fmt.Errorf("AI 检测请求组装失败: %w", err)
-	}
-	client := &http.Client{Timeout: 5 * time.Second}
-	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return 0, fmt.Errorf("AI 检测请求创建失败: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, fmt.Errorf("AI 检测请求发送失败: %w", err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-
-	if resp.StatusCode != http.StatusOK {
-		detail := strings.TrimSpace(string(body))
-		if detail != "" {
-			return 0, fmt.Errorf("AI 检测接口返回状态 %d: %s", resp.StatusCode, detail)
-		}
-		return 0, fmt.Errorf("AI 检测接口返回状态 %d", resp.StatusCode)
-	}
-
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-			Text string `json:"text"`
-		} `json:"choices"`
-		OutputText string `json:"output_text"`
-		Text       string `json:"text"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return 0, fmt.Errorf("AI 检测响应解析失败: %w; 原始返回: %s", err, strings.TrimSpace(string(body)))
-	}
-	if len(result.Choices) == 0 {
-		return 0, fmt.Errorf("AI 检测响应为空，原始返回: %s", strings.TrimSpace(string(body)))
-	}
-
-	content := strings.TrimSpace(result.Choices[0].Message.Content)
-	if content == "" {
-		content = strings.TrimSpace(result.Choices[0].Text)
-	}
-	if content == "" {
-		content = strings.TrimSpace(result.OutputText)
-	}
-	if content == "" {
-		content = strings.TrimSpace(result.Text)
+		return 0, fmt.Errorf("AI 检测失败: %w", err)
 	}
 	score, ok := extractSpamScore(content)
 	if !ok {
-		return 0, fmt.Errorf("AI 检测响应格式不符合预期，原始返回: %s", strings.TrimSpace(string(body)))
+		return 0, fmt.Errorf("AI 检测响应格式不符合预期：%s", content)
 	}
 
 	return score, nil
+}
+
+func analyzeCloudflareAttackType(apiKey, apiURL, model string, logs []cloudflareAccessLogItem) (string, error) {
+	if apiKey == "" || apiURL == "" || model == "" {
+		return "未配置 AI，未生成攻击类型说明。", nil
+	}
+	if len(logs) == 0 {
+		return "当前没有可分析的访问记录。", nil
+	}
+
+	var builder strings.Builder
+	builder.WriteString("根据以下 Cloudflare 访问记录判断最可能的攻击类型。")
+	builder.WriteString("只输出正文 content，输出4到8个汉字，不要解释，不要分点。\n\n记录：\n")
+	for i, logItem := range logs {
+		url := strings.TrimSpace(logItem.URL)
+		if len(url) > 220 {
+			url = url[:220]
+		}
+		builder.WriteString(fmt.Sprintf("%d. %s %s %d %s\n", i+1, logItem.Datetime, logItem.Method, logItem.Status, url))
+	}
+
+	requestData := map[string]interface{}{
+		"model": model,
+		"messages": []map[string]string{
+			{"role": "system", "content": "你是网站安全分析助手，只输出正文 content 里的中文短语，不要解释。"},
+			{"role": "user", "content": builder.String()},
+		},
+		"max_tokens":  4096,
+		"temperature": 0,
+	}
+
+	content, err := callAIChatCompletionText(apiKey, apiURL, requestData)
+	if err != nil {
+		return "", err
+	}
+	if content == "" {
+		return "", fmt.Errorf("AI 攻击类型说明为空")
+	}
+	return content, nil
+}
+
+func queryCloudflareAccessLogs(apiToken, authEmail, zoneID, ip string, created int64) ([]cloudflareAccessLogItem, error) {
+	startTime := time.Unix(created, 0).UTC()
+	start := startTime.Format(time.RFC3339)
+	end := startTime.Add(24 * time.Hour).Format(time.RFC3339)
+	query := `query GetCloudflareAccessLogs($zoneTag: string, $filter: filter) {
+		viewer {
+			zones(filter: { zoneTag: $zoneTag }) {
+				logs: httpRequestsAdaptive(limit: 20, orderBy: [datetime_ASC], filter: $filter) {
+					datetime
+					clientRequestHTTPHost
+					clientRequestHTTPMethodName
+					clientRequestPath
+					clientRequestQuery
+					clientRequestScheme
+					edgeResponseStatus
+				}
+			}
+		}
+	}`
+	payload, _ := json.Marshal(map[string]interface{}{
+		"query": query,
+		"variables": map[string]interface{}{
+			"zoneTag": zoneID,
+			"filter": map[string]interface{}{
+				"AND": []map[string]interface{}{
+					{"datetime_geq": start, "datetime_leq": end},
+					{"clientIP": ip},
+					{"requestSource": "eyeball"},
+				},
+			},
+		},
+	})
+
+	req, err := http.NewRequest(http.MethodPost, "https://api.cloudflare.com/client/v4/graphql", bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, fmt.Errorf("构建 Cloudflare 查询失败: %w", err)
+	}
+	if authEmail != "" {
+		req.Header.Set("X-Auth-Email", authEmail)
+		req.Header.Set("X-Auth-Key", apiToken)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+apiToken)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 12 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Cloudflare 查询失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 65536))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("Cloudflare 返回状态 %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var apiResp struct {
+		Data struct {
+			Viewer struct {
+				Zones []struct {
+					Logs []struct {
+						Datetime                    string `json:"datetime"`
+						ClientRequestHTTPHost       string `json:"clientRequestHTTPHost"`
+						ClientRequestHTTPMethodName string `json:"clientRequestHTTPMethodName"`
+						ClientRequestPath           string `json:"clientRequestPath"`
+						ClientRequestQuery          string `json:"clientRequestQuery"`
+						ClientRequestScheme         string `json:"clientRequestScheme"`
+						EdgeResponseStatus          int    `json:"edgeResponseStatus"`
+					} `json:"logs"`
+				} `json:"zones"`
+			} `json:"viewer"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("Cloudflare 查询返回解析失败")
+	}
+	if len(apiResp.Errors) > 0 {
+		if apiResp.Errors[0].Message != "" {
+			return nil, fmt.Errorf("Cloudflare 查询错误: %s", apiResp.Errors[0].Message)
+		}
+		return nil, fmt.Errorf("Cloudflare 查询失败")
+	}
+	if len(apiResp.Data.Viewer.Zones) == 0 {
+		return []cloudflareAccessLogItem{}, nil
+	}
+
+	logs := make([]cloudflareAccessLogItem, 0, len(apiResp.Data.Viewer.Zones[0].Logs))
+	for _, row := range apiResp.Data.Viewer.Zones[0].Logs {
+		scheme := strings.TrimSpace(row.ClientRequestScheme)
+		if scheme == "" {
+			scheme = "https"
+		}
+		requestURL := strings.TrimSpace(row.ClientRequestPath)
+		host := strings.TrimSpace(row.ClientRequestHTTPHost)
+		if host != "" {
+			requestURL = scheme + "://" + host + requestURL
+		}
+		if strings.TrimSpace(row.ClientRequestQuery) != "" {
+			requestURL += "?" + strings.TrimSpace(row.ClientRequestQuery)
+		}
+
+		datetime := row.Datetime
+		if parsed, err := time.Parse(time.RFC3339, row.Datetime); err == nil {
+			datetime = parsed.In(systemTimeLocation).Format("2006-01-02 15:04:05")
+		}
+
+		logs = append(logs, cloudflareAccessLogItem{
+			Datetime: datetime,
+			Method:   row.ClientRequestHTTPMethodName,
+			URL:      requestURL,
+			Status:   row.EdgeResponseStatus,
+		})
+	}
+
+	return logs, nil
 }
 
 func testCloudflareCredentials(apiToken, authEmail, zoneID string) (string, error) {

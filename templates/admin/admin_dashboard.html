@@ -607,6 +607,64 @@
             font-size: 13px;
         }
 
+        .shield-log-action {
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        .shield-log-action:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .shield-log-action i {
+            margin-right: 4px;
+            color: #0984e3;
+        }
+
+        .access-log-url {
+            max-width: 420px;
+            word-break: break-all;
+        }
+
+        .access-log-scroll {
+            max-height: 56vh;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .cf-analysis-note {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border: 1px solid #dbe4ee;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #0f172a;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .cf-analysis-label {
+            font-weight: 700;
+            color: #0984e3;
+            margin-right: 6px;
+        }
+
+        .cf-analysis-tip {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
         @media (max-width: 960px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
@@ -816,6 +874,7 @@
                             <th>最高频 IP</th>
                             <th>访问时间</th>
                             <th>触发路径</th>
+                            <th>CF日志</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -824,6 +883,7 @@
                             <td>{{.IP}}</td>
                             <td>{{.CreatedAt}}</td>
                             <td>{{.Path}}</td>
+                            <td><button type="button" class="shield-log-action" data-ip="{{.IP}}" data-created="{{.Created}}"><i class="fas fa-search"></i><span>查询</span></button></td>
                         </tr>
                         {{end}}
                     </tbody>
@@ -831,6 +891,17 @@
                 {{else}}
                 <div class="shield-log-empty">暂时还没有五秒盾相关日志。</div>
                 {{end}}
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="cf-access-log-modal">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3 id="cf-access-log-title">Cloudflare 访问明细</h3>
+                <button type="button" class="modal-close" id="cf-access-log-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body access-log-scroll" id="cf-access-log-body">
+                <div class="shield-log-empty">正在查询 Cloudflare 日志...</div>
             </div>
         </div>
     </div>
@@ -1002,6 +1073,158 @@
             cfShieldLogModal.addEventListener('click', function (event) {
                 if (event.target === cfShieldLogModal) {
                     cfShieldLogModal.classList.remove('active');
+                }
+            });
+        }
+
+        const cfAccessLogModal = document.getElementById('cf-access-log-modal');
+        const cfAccessLogClose = document.getElementById('cf-access-log-close');
+        const cfAccessLogTitle = document.getElementById('cf-access-log-title');
+        const cfAccessLogBody = document.getElementById('cf-access-log-body');
+        let cfAccessLogAnalysisNode = null;
+
+        function setAccessLogMessage(message) {
+            cfAccessLogBody.innerHTML = '';
+            const empty = document.createElement('div');
+            empty.className = 'shield-log-empty';
+            empty.textContent = message;
+            cfAccessLogBody.appendChild(empty);
+        }
+
+        function setAccessLogAnalysis(message, isError) {
+            if (!cfAccessLogBody) {
+                return;
+            }
+            if (!cfAccessLogAnalysisNode) {
+                cfAccessLogAnalysisNode = document.createElement('div');
+                cfAccessLogAnalysisNode.className = 'cf-analysis-note';
+                cfAccessLogBody.insertBefore(cfAccessLogAnalysisNode, cfAccessLogBody.firstChild);
+            }
+            cfAccessLogAnalysisNode.textContent = '';
+            cfAccessLogAnalysisNode.style.borderColor = isError ? '#fecaca' : '#dbe4ee';
+            cfAccessLogAnalysisNode.style.background = isError ? '#fef2f2' : '#f8fafc';
+            cfAccessLogAnalysisNode.style.color = isError ? '#b91c1c' : '#0f172a';
+
+            const label = document.createElement('span');
+            label.className = 'cf-analysis-label';
+            label.textContent = 'AI 攻击类型';
+            cfAccessLogAnalysisNode.appendChild(label);
+            cfAccessLogAnalysisNode.appendChild(document.createTextNode(message));
+
+            const tip = document.createElement('div');
+            tip.className = 'cf-analysis-tip';
+            tip.textContent = '说明：该结论由 AI 根据日志推断，仅供参考。';
+            cfAccessLogAnalysisNode.appendChild(tip);
+        }
+
+        function clearAccessLogAnalysis() {
+            if (cfAccessLogAnalysisNode && cfAccessLogAnalysisNode.parentNode) {
+                cfAccessLogAnalysisNode.parentNode.removeChild(cfAccessLogAnalysisNode);
+            }
+            cfAccessLogAnalysisNode = null;
+        }
+
+        async function fetchAccessLogAnalysis(logs) {
+            if (!Array.isArray(logs) || logs.length === 0) {
+                return;
+            }
+
+            setAccessLogAnalysis('分析中...');
+
+            try {
+                const response = await fetch(`{{adminPath}}/dashboard/cloudflare-access-analysis`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ logs: logs })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.message || 'Cloudflare 日志分析失败');
+                }
+                setAccessLogAnalysis(data.analysis || '暂无分析结果');
+            } catch (error) {
+                setAccessLogAnalysis(error.message || 'Cloudflare 日志分析失败', true);
+            }
+        }
+
+        function renderAccessLogs(logs) {
+            cfAccessLogBody.innerHTML = '';
+            clearAccessLogAnalysis();
+            if (!Array.isArray(logs) || logs.length === 0) {
+                setAccessLogMessage('这个时间段内没有查到访问记录。');
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'shield-log-table';
+            const thead = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            ['时间', '方法', '状态', 'URL'].forEach(text => {
+                const th = document.createElement('th');
+                th.textContent = text;
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            logs.forEach(item => {
+                const row = document.createElement('tr');
+                const values = [
+                    item.datetime || '',
+                    item.method || '',
+                    item.status ? String(item.status) : '',
+                    item.url || ''
+                ];
+                values.forEach((text, index) => {
+                    const td = document.createElement('td');
+                    if (index === 3) {
+                        td.className = 'access-log-url';
+                    }
+                    td.textContent = text;
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            cfAccessLogBody.appendChild(table);
+        }
+
+        if (cfAccessLogModal && cfAccessLogClose && cfAccessLogTitle && cfAccessLogBody) {
+            document.querySelectorAll('.shield-log-action').forEach(button => {
+                button.addEventListener('click', async function () {
+                    const ip = this.dataset.ip || '';
+                    const created = this.dataset.created || '';
+                    cfAccessLogTitle.textContent = `Cloudflare 访问明细：${ip}`;
+                    cfAccessLogModal.classList.add('active');
+                    setAccessLogMessage('正在查询 Cloudflare 日志...');
+
+                    try {
+                        const response = await fetch(`{{adminPath}}/dashboard/cloudflare-access-logs?ip=${encodeURIComponent(ip)}&created=${encodeURIComponent(created)}`, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data.ok) {
+                            throw new Error(data.message || 'Cloudflare 日志查询失败');
+                        }
+                        renderAccessLogs(data.logs);
+                        fetchAccessLogAnalysis(data.logs);
+                    } catch (error) {
+                        setAccessLogMessage(error.message || 'Cloudflare 日志查询失败');
+                    }
+                });
+            });
+
+            cfAccessLogClose.addEventListener('click', function () {
+                cfAccessLogModal.classList.remove('active');
+            });
+
+            cfAccessLogModal.addEventListener('click', function (event) {
+                if (event.target === cfAccessLogModal) {
+                    cfAccessLogModal.classList.remove('active');
                 }
             });
         }
