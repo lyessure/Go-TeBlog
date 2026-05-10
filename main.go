@@ -314,7 +314,7 @@ func blockCloudflareIPs(db *sql.DB, logID int64, token, authEmail, zoneID string
 		if i > 0 {
 			time.Sleep(time.Second)
 		}
-		ruleID, err := blockCloudflareIP(token, authEmail, zoneID, candidate.IP, fmt.Sprintf("Go-TeBlog 五秒盾自动拉黑: %d 次 / %s", candidate.Hits, candidate.Path))
+		ruleID, err := blockCloudflareIP(token, authEmail, zoneID, candidate.IP, "Go-TeBlog 五秒盾自动拉黑")
 		if err != nil {
 			log.Printf("Cloudflare 五秒盾自动拉黑 IP 失败: %s: %v", candidate.IP, err)
 		} else {
