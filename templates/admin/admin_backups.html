@@ -432,6 +432,10 @@
             color: #10b981;
         }
 
+        .confirm-dialog-header .delete-confirm-icon {
+            color: #ef4444;
+        }
+
         .confirm-dialog-body {
             padding: 0 22px 20px;
             color: #64748b;
@@ -522,8 +526,8 @@
                                 <td>{{.Time}}</td>
                                 <td style="text-align: right;">
                                     <div class="action-group">
-                                        <form action="{{adminPath}}/backups/delete/{{.Name}}" method="POST" class="inline-form"
-                                            onsubmit="return confirm('确定要删除这个备份文件吗？')">
+                                        <form action="{{adminPath}}/backups/delete/{{.Name}}" method="POST"
+                                            class="inline-form backup-delete-form">
                                             <button type="submit" class="icon-action-btn delete" title="删除" aria-label="删除">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -573,6 +577,23 @@
             </div>
         </div>
     </div>
+    <div class="modal-backdrop" id="deleteConfirmModal" aria-hidden="true">
+        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+            <div class="confirm-dialog-header">
+                <i class="fas fa-trash-alt delete-confirm-icon"></i>
+                <span id="deleteConfirmTitle">删除备份文件</span>
+            </div>
+            <div class="confirm-dialog-body">
+                确定要删除这个备份文件吗？删除后无法恢复。
+            </div>
+            <div class="confirm-dialog-actions">
+                <button type="button" class="btn btn-outline" id="cancelDeleteBtn">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash-alt"></i> 确认删除
+                </button>
+            </div>
+        </div>
+    </div>
     <script>
         (() => {
             const refreshBtn = document.getElementById('refreshBackupPanelBtn');
@@ -581,6 +602,10 @@
             const vacuumModal = document.getElementById('vacuumConfirmModal');
             const cancelVacuumBtn = document.getElementById('cancelVacuumBtn');
             const confirmVacuumBtn = document.getElementById('confirmVacuumBtn');
+            const deleteModal = document.getElementById('deleteConfirmModal');
+            const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            let pendingDeleteForm = null;
 
             const closeVacuumModal = () => {
                 if (!vacuumModal) return;
@@ -619,8 +644,49 @@
                 });
             }
 
+            const closeDeleteModal = () => {
+                if (!deleteModal) return;
+                deleteModal.classList.remove('is-open');
+                deleteModal.setAttribute('aria-hidden', 'true');
+                pendingDeleteForm = null;
+            };
+
+            const openDeleteModal = (form) => {
+                if (!deleteModal) return;
+                pendingDeleteForm = form;
+                deleteModal.classList.add('is-open');
+                deleteModal.setAttribute('aria-hidden', 'false');
+                if (confirmDeleteBtn) confirmDeleteBtn.focus();
+            };
+
+            document.addEventListener('submit', (e) => {
+                if (e.target.matches('.backup-delete-form')) {
+                    e.preventDefault();
+                    openDeleteModal(e.target);
+                }
+            });
+
+            if (cancelDeleteBtn) {
+                cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+            }
+
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.addEventListener('click', () => {
+                    if (!pendingDeleteForm) return;
+                    confirmDeleteBtn.disabled = true;
+                    pendingDeleteForm.submit();
+                });
+            }
+
+            if (deleteModal) {
+                deleteModal.addEventListener('click', (e) => {
+                    if (e.target === deleteModal) closeDeleteModal();
+                });
+            }
+
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeVacuumModal();
+                if (e.key === 'Escape') closeDeleteModal();
             });
 
             const bindAutoDismissAlerts = () => {
