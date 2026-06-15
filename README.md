@@ -242,3 +242,4 @@ sudo bash build.sh
 ![后台管理 - 系统设置](screenshot/6.webp)
 ![后台管理 - 用户管理](screenshot/7.webp)
 ![后台管理 - 数据库备份](screenshot/8.webp)
+![后台管理 - AI 校稿设置](screenshot/10.png)
