@@ -967,6 +967,9 @@ func main() {
 			"AiApiUrl":                   getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"),
 			"AiModel":                    getOption(db, "aiModel", "llama-3.3-70b-versatile"),
 			"AiTimeoutSeconds":           getOption(db, "aiTimeoutSeconds", "10"),
+			"AiProofreadMaxChars":        getOption(db, "aiProofreadMaxChars", "0"),
+			"AiProofreadMaxTokens":       getOption(db, "aiProofreadMaxTokens", "16384"),
+			"AiProofreadPrompt":          getOption(db, "aiProofreadPrompt", defaultAIProofreadPrompt()),
 			"CommentAiDetection":         getOption(db, "commentAiDetection", "1"),
 			"DefaultCategory":            getOption(db, "defaultCategory", "1"),
 			"CommentAudit":               getOption(db, "commentAudit", "0"),
@@ -1088,6 +1091,12 @@ func main() {
 		aiModel := c.PostForm("aiModel")
 		aiThreshold := c.PostForm("aiThreshold")
 		aiTimeoutSeconds := normalizeAITimeoutSeconds(c.PostForm("aiTimeoutSeconds"))
+		aiProofreadMaxChars := normalizeAIProofreadMaxChars(c.PostForm("aiProofreadMaxChars"))
+		aiProofreadMaxTokens := normalizeAIProofreadMaxTokens(c.PostForm("aiProofreadMaxTokens"))
+		aiProofreadPrompt := strings.TrimSpace(c.PostForm("aiProofreadPrompt"))
+		if aiProofreadPrompt == "" {
+			aiProofreadPrompt = defaultAIProofreadPrompt()
+		}
 		commentAiDetection := c.DefaultPostForm("commentAiDetection", "0")
 		sessionTimeout := c.PostForm("sessionTimeout")
 		keywords := c.PostForm("keywords")
@@ -1148,6 +1157,9 @@ func main() {
 		setOption(db, "aiModel", aiModel)
 		setOption(db, "aiThreshold", aiThreshold)
 		setOption(db, "aiTimeoutSeconds", strconv.Itoa(aiTimeoutSeconds))
+		setOption(db, "aiProofreadMaxChars", strconv.Itoa(aiProofreadMaxChars))
+		setOption(db, "aiProofreadMaxTokens", strconv.Itoa(aiProofreadMaxTokens))
+		setOption(db, "aiProofreadPrompt", aiProofreadPrompt)
 		setOption(db, "commentAiDetection", commentAiDetection)
 		setOption(db, "sessionTimeout", sessionTimeout)
 		setOption(db, "keywords", keywords)
@@ -1517,6 +1529,44 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true, "html": preview})
+	})
+
+	admin.POST("/post/ai-proofread", writeProtectMiddleware, func(c *gin.Context) {
+		text := c.PostForm("text")
+		if strings.TrimSpace(text) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请先输入文章内容"})
+			return
+		}
+		maxChars := normalizeAIProofreadMaxChars(getOption(db, "aiProofreadMaxChars", "0"))
+		textChars := len([]rune(text))
+		if maxChars > 0 && textChars > maxChars {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("当前文章长度为 %d 字符，超过 AI 校稿最大长度 %d 字符。", textChars, maxChars),
+			})
+			return
+		}
+
+		apiKey := strings.TrimSpace(getOption(db, "grokApiKey", ""))
+		apiURL := strings.TrimSpace(getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions"))
+		model := strings.TrimSpace(getOption(db, "aiModel", ""))
+		timeoutSeconds := normalizeAITimeoutSeconds(getOption(db, "aiTimeoutSeconds", "10"))
+		if timeoutSeconds < 60 {
+			timeoutSeconds = 60
+		}
+		prompt := strings.TrimSpace(getOption(db, "aiProofreadPrompt", defaultAIProofreadPrompt()))
+		if prompt == "" {
+			prompt = defaultAIProofreadPrompt()
+		}
+		maxTokens := normalizeAIProofreadMaxTokens(getOption(db, "aiProofreadMaxTokens", "16384"))
+
+		proofreadText, err := proofreadPostTextWithAI(text, apiKey, apiURL, model, prompt, maxTokens, timeoutSeconds)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "text": proofreadText})
 	})
 
 	// Comment Management with Pagination
@@ -2391,6 +2441,9 @@ func main() {
 
 	admin.GET("/edit/:cid", func(c *gin.Context) {
 		cid := c.Param("cid")
+		aiProofreadEnabled := strings.TrimSpace(getOption(db, "grokApiKey", "")) != "" &&
+			strings.TrimSpace(getOption(db, "aiApiUrl", "https://api.groq.com/openai/v1/chat/completions")) != "" &&
+			strings.TrimSpace(getOption(db, "aiModel", "")) != ""
 		var post struct {
 			Cid   int
 			Title string
@@ -2459,13 +2512,14 @@ func main() {
 
 			username, _ := c.Get("username")
 			c.HTML(http.StatusOK, "admin_edit.html", gin.H{
-				"Username":    username,
-				"UserGroup":   group,
-				"Post":        post,
-				"IsNew":       false,
-				"Attachments": attachments,
-				"Tab":         "posts",
-				"Categories":  categories,
+				"Username":           username,
+				"UserGroup":          group,
+				"Post":               post,
+				"IsNew":              false,
+				"Attachments":        attachments,
+				"Tab":                "posts",
+				"Categories":         categories,
+				"AiProofreadEnabled": aiProofreadEnabled,
 			})
 		} else {
 			// Fetch all categories for new post
@@ -2497,13 +2551,14 @@ func main() {
 				return
 			}
 			c.HTML(http.StatusOK, "admin_edit.html", gin.H{
-				"Username":    username,
-				"UserGroup":   group,
-				"Post":        post,
-				"IsNew":       true,
-				"Attachments": nil,
-				"Tab":         "posts",
-				"Categories":  categories,
+				"Username":           username,
+				"UserGroup":          group,
+				"Post":               post,
+				"IsNew":              true,
+				"Attachments":        nil,
+				"Tab":                "posts",
+				"Categories":         categories,
+				"AiProofreadEnabled": aiProofreadEnabled,
 			})
 		}
 	})
@@ -2828,6 +2883,11 @@ func stripThinkingOutput(content string) string {
 	return strings.TrimSpace(cleaned)
 }
 
+func stripThinkingBlocks(content string) string {
+	thinkBlockRE := regexp.MustCompile(`(?is)<think\b[^>]*>.*?</think>`)
+	return strings.TrimSpace(thinkBlockRE.ReplaceAllString(content, " "))
+}
+
 func compactAIText(content string) string {
 	cleaned := stripThinkingOutput(content)
 	if idx := strings.IndexAny(cleaned, "\r\n"); idx >= 0 {
@@ -2857,6 +2917,14 @@ func callAIChatCompletionText(apiKey, apiURL string, requestData map[string]inte
 }
 
 func callAIChatCompletionTextWithTimeout(apiKey, apiURL string, requestData map[string]interface{}, timeoutSeconds int) (string, error) {
+	return callAIChatCompletionTextInternal(apiKey, apiURL, requestData, timeoutSeconds, true)
+}
+
+func callAIChatCompletionFullTextWithTimeout(apiKey, apiURL string, requestData map[string]interface{}, timeoutSeconds int) (string, error) {
+	return callAIChatCompletionTextInternal(apiKey, apiURL, requestData, timeoutSeconds, false)
+}
+
+func callAIChatCompletionTextInternal(apiKey, apiURL string, requestData map[string]interface{}, timeoutSeconds int, compact bool) (string, error) {
 	if apiKey == "" || apiURL == "" {
 		return "", fmt.Errorf("AI 配置缺失：请填写 AI API URL 和 AI API Key")
 	}
@@ -2883,7 +2951,11 @@ func callAIChatCompletionTextWithTimeout(apiKey, apiURL string, requestData map[
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	bodyLimit := int64(4096)
+	if !compact {
+		bodyLimit = 4 * 1024 * 1024
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLimit))
 	if resp.StatusCode != http.StatusOK {
 		detail := strings.TrimSpace(string(body))
 		if detail != "" {
@@ -2925,7 +2997,73 @@ func callAIChatCompletionTextWithTimeout(apiKey, apiURL string, requestData map[
 		return "", fmt.Errorf("AI 响应为空，原始返回: %s", strings.TrimSpace(string(body)))
 	}
 
-	return compactAIText(content), nil
+	if compact {
+		return compactAIText(content), nil
+	}
+	return stripThinkingBlocks(content), nil
+}
+
+func defaultAIProofreadPrompt() string {
+	return "你帮我处理一下现在正在撰写的文章内容，只整理排版、段落、错别字和标点，在不改变原意、语气、观点和事实的前提下适当优化自然语言表达与阅读流畅度，但禁止润色、扩写、缩写、重写观点或加入任何新内容。如果发现 Markdown 语法、链接、图片、代码块、HTML 或 Typecho 标签，务必保持原样，包括字符内容、顺序和所在位置，不要改写、移动、删除或补全。直接输出整理后的全文。"
+}
+
+func proofreadPostTextWithAI(text string, apiKey string, apiURL string, model string, prompt string, maxTokens int, timeoutSeconds int) (string, error) {
+	if apiKey == "" || apiURL == "" || model == "" {
+		return "", fmt.Errorf("AI 校稿配置缺失：请填写 AI API URL、AI Model 和 AI API Key")
+	}
+	if strings.TrimSpace(prompt) == "" {
+		prompt = defaultAIProofreadPrompt()
+	}
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 10
+	}
+	if maxTokens <= 0 {
+		maxTokens = 16384
+	}
+
+	messages := []map[string]string{
+		{"role": "system", "content": prompt},
+		{"role": "user", "content": text},
+	}
+
+	var lastErr error
+	for _, requestMaxTokens := range aiProofreadTokenFallbacks(maxTokens) {
+		requestData := map[string]interface{}{
+			"model":       model,
+			"messages":    messages,
+			"max_tokens":  requestMaxTokens,
+			"temperature": 0,
+		}
+
+		content, err := callAIChatCompletionFullTextWithTimeout(apiKey, apiURL, requestData, timeoutSeconds)
+		if err == nil {
+			if strings.TrimSpace(content) == "" {
+				return "", fmt.Errorf("AI 校稿结果为空")
+			}
+			return content, nil
+		}
+		lastErr = err
+		if !isAITokenLimitError(err) {
+			break
+		}
+	}
+
+	if lastErr != nil {
+		return "", fmt.Errorf("AI 校稿失败: %w", lastErr)
+	}
+	return "", fmt.Errorf("AI 校稿失败")
+}
+
+func isAITokenLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "max_tokens") ||
+		strings.Contains(msg, "max token") ||
+		strings.Contains(msg, "maximum token") ||
+		strings.Contains(msg, "context length") ||
+		strings.Contains(msg, "too many tokens")
 }
 
 func checkSpamAITestComment(words string, apiKey string, apiURL string, model string, timeoutSeconds int) (int, error) {
@@ -3284,6 +3422,35 @@ func normalizeAITimeoutSeconds(value string) int {
 		return 10
 	}
 	return timeoutSeconds
+}
+
+func normalizeAIProofreadMaxChars(value string) int {
+	maxChars, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || maxChars < 0 {
+		return 0
+	}
+	return maxChars
+}
+
+func normalizeAIProofreadMaxTokens(value string) int {
+	maxTokens, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || maxTokens <= 0 {
+		return 16384
+	}
+	return maxTokens
+}
+
+func aiProofreadTokenFallbacks(maxTokens int) []int {
+	if maxTokens <= 0 {
+		maxTokens = 16384
+	}
+	candidates := []int{maxTokens}
+	for _, fallback := range []int{8192, 4096} {
+		if fallback < maxTokens {
+			candidates = append(candidates, fallback)
+		}
+	}
+	return candidates
 }
 
 func setOption(db *sql.DB, name string, value string) {

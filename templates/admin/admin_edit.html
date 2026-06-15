@@ -209,28 +209,66 @@
             resize: vertical;
         }
 
-        .btn-save {
+        .edit-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .edit-actions button {
             width: 100%;
-            padding: 12px;
-            background: #3b82f6;
+            min-height: 38px;
+            padding: 9px 8px;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .edit-actions .action-tip {
+            display: block;
+        }
+
+        .edit-actions button i {
+            margin-right: 5px;
+        }
+
+        .btn-save {
+            background: #10b981;
         }
 
         .btn-preview {
-            width: 100%;
-            padding: 12px;
-            background: #10b981;
-            color: white;
-            border: none;
+            background: #0984e3;
+        }
+
+        .btn-ai-proofread {
+            background: #0984e3;
+        }
+
+        .btn-ai-proofread:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            opacity: 0.72;
+        }
+
+        .ai-proofread-status {
+            display: none;
+            margin: -2px 0 12px;
+            padding: 8px 10px;
             border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .ai-proofread-status.error {
+            background: #fef2f2;
+            color: #dc2626;
         }
 
         .preview-layer-mask {
@@ -470,8 +508,14 @@
         </div>
 
         <div class="side-panel">
-            <button type="button" class="btn-save" onclick="document.getElementById('post-form').submit()">保存文章</button>
-            <button type="button" class="btn-preview" id="previewBtn"><i class="fas fa-eye"></i> 实时预览</button>
+            <div class="edit-actions">
+                <button type="button" class="btn-save" onclick="document.getElementById('post-form').submit()"><i class="fas fa-save"></i> 保存</button>
+                <button type="button" class="btn-preview" id="previewBtn"><i class="fas fa-eye"></i> 预览</button>
+                <span class="action-tip" title="{{if not .AiProofreadEnabled}}请先到系统设置中配置 AI 系统：AI API URL、AI Model 和 AI API Key{{else}}使用 AI 整理当前编辑框内容{{end}}">
+                    <button type="button" class="btn-ai-proofread" id="aiProofreadBtn" {{if not .AiProofreadEnabled}}disabled{{end}}><i class="fas fa-spell-check"></i> 校稿</button>
+                </span>
+            </div>
+            <div class="ai-proofread-status" id="aiProofreadStatus"></div>
 
             <div class="attachment-box">
                 <label>附件管理</label>
@@ -528,6 +572,8 @@
         const previewLayerMask = document.getElementById('previewLayerMask');
         const previewLayerBody = document.getElementById('previewLayerBody');
         const previewCloseBtn = document.getElementById('previewCloseBtn');
+        const aiProofreadBtn = document.getElementById('aiProofreadBtn');
+        const aiProofreadStatus = document.getElementById('aiProofreadStatus');
         let previewTimer = null;
         let previewRequestId = 0;
         let previewOpen = false;
@@ -581,6 +627,58 @@
         previewLayerMask.addEventListener('click', closePreviewLayer);
         postTitle.addEventListener('input', scheduleEditorPreview);
         editor.addEventListener('input', scheduleEditorPreview);
+
+        function setAIProofreadStatus(message, isError) {
+            aiProofreadStatus.textContent = message || '';
+            aiProofreadStatus.className = 'ai-proofread-status' + (isError ? ' error' : '');
+            aiProofreadStatus.style.display = message ? 'block' : 'none';
+        }
+
+        if (aiProofreadBtn && !aiProofreadBtn.disabled) {
+            aiProofreadBtn.addEventListener('click', function () {
+                const text = editor.value;
+                if (!text.trim()) {
+                    setAIProofreadStatus('请先输入文章内容。', true);
+                    return;
+                }
+
+                aiProofreadBtn.disabled = true;
+                aiProofreadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 校稿中...';
+                setAIProofreadStatus('AI 正在整理当前编辑框内容，请稍候。', false);
+
+                const formData = new FormData();
+                formData.append('text', text);
+
+                fetch('{{adminPath}}/post/ai-proofread', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                })
+                    .then(async response => {
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.message || 'AI 校稿失败');
+                        }
+                        return data;
+                    })
+                    .then(data => {
+                        editor.value = data.text || '';
+                        scheduleEditorPreview();
+                        setAIProofreadStatus('校稿完成，已替换当前编辑框内容。', false);
+                    })
+                    .catch(err => {
+                        setAIProofreadStatus(err.message || 'AI 校稿失败', true);
+                    })
+                    .finally(() => {
+                        aiProofreadBtn.disabled = false;
+                        aiProofreadBtn.innerHTML = '<i class="fas fa-spell-check"></i> 校稿';
+                    });
+            });
+        }
+
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && previewOpen) {
                 closePreviewLayer();

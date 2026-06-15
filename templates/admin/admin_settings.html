@@ -876,6 +876,24 @@
                                 <input type="number" name="aiTimeoutSeconds" value="{{.AiTimeoutSeconds}}" min="1"
                                     required>
                             </div>
+                            <div class="form-group">
+                                <label>AI 校稿文章最大长度</label>
+                                <span class="label-desc">按字符数限制；填 0 表示不限制。</span>
+                                <input type="number" name="aiProofreadMaxChars" value="{{.AiProofreadMaxChars}}" min="0"
+                                    required>
+                            </div>
+                            <div class="form-group">
+                                <label>AI 校稿最大输出长度</label>
+                                <span class="label-desc">对应 AI 请求的 max_tokens。默认: 16384。</span>
+                                <input type="number" name="aiProofreadMaxTokens" value="{{.AiProofreadMaxTokens}}" min="1"
+                                    required>
+                            </div>
+                            <div class="form-group full-width">
+                                <label>AI 校稿提示语</label>
+                                <span class="label-desc">用于后台文章编辑页的“校稿”功能。留空保存时会恢复默认提示语。</span>
+                                <textarea name="aiProofreadPrompt" class="full-width" rows="5"
+                                    style="margin-top: 8px; font-family: inherit;">{{.AiProofreadPrompt}}</textarea>
+                            </div>
                             <div class="form-group full-width">
                                 <label>AI 连通性检测</label>
                                 <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，可选择测试语或输入自定义评论检查评论过滤 AI 是否可调用。{{end}}</span>
