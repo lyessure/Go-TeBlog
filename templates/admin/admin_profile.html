@@ -91,11 +91,13 @@
 
         .content {
             flex: 1;
-            padding: 40px;
+            padding: 28px 34px;
             margin-left: 240px;
             min-height: 100vh;
             box-sizing: border-box;
-            padding-top: 85px;
+            padding-top: 76px;
+            display: flex;
+            justify-content: center;
         }
 
         .top-bar {
@@ -179,10 +181,10 @@
         }
 
         .profile-card {
-            max-width: 600px;
+            width: min(100%, 1080px);
             background: #fff;
             padding: 0;
-            border-radius: 24px;
+            border-radius: 18px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
             border: 1px solid #e2e8f0;
             overflow: hidden;
@@ -191,12 +193,13 @@
         }
 
         .card-body {
-            padding: 40px;
+            padding: 28px 32px;
         }
 
         .form-layout {
             display: grid;
-            gap: 24px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
         }
 
         .form-group {
@@ -207,7 +210,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         label {
@@ -237,7 +240,7 @@
         input[type="password"],
         input[type="text"] {
             width: 100%;
-            padding: 12px 12px 12px 40px;
+            padding: 10px 12px 10px 38px;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             box-sizing: border-box;
@@ -256,12 +259,17 @@
 
         .security-section {
             border-top: 1px solid #e2e8f0;
-            margin-top: 34px;
-            padding-top: 30px;
+            margin-top: 24px;
+            padding-top: 22px;
+        }
+
+        .security-section + .security-section {
+            margin-top: 0;
+            border-top: 0;
         }
 
         .security-section h3 {
-            margin: 0 0 16px;
+            margin: 0 0 12px;
             font-size: 1rem;
             color: #1e293b;
             display: flex;
@@ -271,8 +279,8 @@
 
         .passkey-list {
             display: grid;
-            gap: 10px;
-            margin: 16px 0;
+            gap: 8px;
+            margin: 12px 0;
         }
 
         .passkey-item {
@@ -280,7 +288,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            padding: 12px 14px;
+            padding: 10px 12px;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             background: #f8fafc;
@@ -293,7 +301,7 @@
         }
 
         .passkey-meta {
-            margin-top: 4px;
+            margin-top: 2px;
             color: #94a3b8;
             font-size: 0.75rem;
         }
@@ -343,25 +351,89 @@
         }
 
         .passkey-notice {
-            padding: 13px 14px;
+            padding: 10px 12px;
             border-radius: 12px;
             background: #fff7ed;
             border: 1px solid #fed7aa;
             color: #9a3412;
             font-size: 0.82rem;
-            line-height: 1.55;
+            line-height: 1.45;
+        }
+
+        .two-factor-box {
+            display: grid;
+            gap: 10px;
+        }
+
+        .two-factor-secret {
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .two-factor-qr {
+            display: flex;
+            justify-content: center;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+        }
+
+        .two-factor-qr img {
+            width: 168px;
+            height: 168px;
+            display: block;
+        }
+
+        .two-factor-actions {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn-2fa {
+            border: none;
+            min-width: 110px;
+            height: 42px;
+            border-radius: 12px;
+            background: #0984e3;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0 18px;
+        }
+
+        .btn-2fa:hover {
+            background: #0873c4;
+        }
+
+        .btn-2fa.danger {
+            background: #dc2626;
+        }
+
+        .btn-2fa.danger:hover {
+            background: #b91c1c;
         }
 
         .security-tips {
-            margin-top: 30px;
-            padding: 20px;
+            margin-top: 16px;
+            padding: 14px 16px;
             background: #f0f9ff;
             border-radius: 16px;
             border: 1px solid #e0f2fe;
         }
 
         .security-tips h4 {
-            margin: 0 0 10px;
+            margin: 0 0 6px;
             font-size: 0.875rem;
             color: #0369a1;
             display: flex;
@@ -378,20 +450,20 @@
         }
 
         .security-tips li {
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .btn-submit {
             background: #0984e3;
             color: white;
             border: none;
-            padding: 14px 24px;
+            padding: 12px 20px;
             border-radius: 12px;
             cursor: pointer;
             font-weight: 600;
             font-size: 0.9375rem;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 4px;
             transition: all 0.2s;
             box-shadow: 0 4px 6px -1px rgba(9, 132, 227, 0.3);
         }
@@ -430,6 +502,53 @@
             background: #f0fdf4;
             color: #15803d;
             border: 1px solid #dcfce7;
+        }
+
+        @media (min-width: 980px) {
+            .security-section {
+                display: inline-grid;
+                width: calc(50% - 12px);
+                vertical-align: top;
+            }
+
+            .security-section + .security-section {
+                margin-left: 20px;
+            }
+
+            .two-factor-qr {
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 1120px) {
+            .form-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .content {
+                margin-left: 0;
+                padding: 76px 18px 28px;
+            }
+
+            .profile-card {
+                width: 100%;
+            }
+
+            .card-body {
+                padding: 24px;
+            }
+
+            .two-factor-actions,
+            .passkey-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-2fa,
+            .btn-passkey {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -500,6 +619,43 @@
                         <li>不要使用与您的用户名或生日相关的信息。</li>
                         <li>建议每 3-6 个月更换一次管理后台密码。</li>
                     </ul>
+                </div>
+
+                <div class="security-section">
+                    <h3><i class="fas fa-mobile-alt"></i> Google 验证器 2FA</h3>
+                    {{if not .TwoFactorAllowed}}
+                    <div class="passkey-notice">guest 或访客用户不能设置 2FA。</div>
+                    {{else if .TwoFactorEnabled}}
+                    <div class="two-factor-box">
+                        <div class="passkey-notice">已启用。密码登录时需要输入 Google 验证器中的 6 位验证码；通行密钥登录不需要 2FA。</div>
+                        <form action="{{adminPath}}/profile/2fa/disable" method="POST" class="two-factor-actions">
+                            <div class="input-wrapper">
+                                <i class="fas fa-key"></i>
+                                <input type="text" name="totp_code" inputmode="numeric" pattern="[0-9]*"
+                                    autocomplete="one-time-code" placeholder="输入 6 位验证码关闭 2FA" required>
+                            </div>
+                            <button type="submit" class="btn-2fa danger">关闭</button>
+                        </form>
+                    </div>
+                    {{else}}
+                    <div class="two-factor-box">
+                        <div class="passkey-notice">使用 Google Authenticator 扫描二维码，然后输入 6 位验证码启用。下方密钥可作为手动添加备用。</div>
+                        {{if .TwoFactorQRCode}}
+                        <div class="two-factor-qr">
+                            <img src="{{.TwoFactorQRCode}}" alt="Google 验证器二维码">
+                        </div>
+                        {{end}}
+                        <div class="two-factor-secret">{{.TwoFactorSecret}}</div>
+                        <form action="{{adminPath}}/profile/2fa/enable" method="POST" class="two-factor-actions">
+                            <div class="input-wrapper">
+                                <i class="fas fa-key"></i>
+                                <input type="text" name="totp_code" inputmode="numeric" pattern="[0-9]*"
+                                    autocomplete="one-time-code" placeholder="输入 6 位验证码启用 2FA" required>
+                            </div>
+                            <button type="submit" class="btn-2fa">启用</button>
+                        </form>
+                    </div>
+                    {{end}}
                 </div>
 
                 <div class="security-section">

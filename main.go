@@ -1810,6 +1810,13 @@ func initDB(db *sql.DB) {
 			"created_at" INTEGER,
 			"last_used_at" INTEGER DEFAULT 0
 		)`,
+		`CREATE TABLE IF NOT EXISTS "go_totp_settings" (
+			"username" TEXT PRIMARY KEY,
+			"secret" TEXT NOT NULL,
+			"enabled" INTEGER DEFAULT 0,
+			"created_at" INTEGER,
+			"updated_at" INTEGER
+		)`,
 		`CREATE TABLE IF NOT EXISTS "go_options" (
 			"name" TEXT PRIMARY KEY,
 			"value" TEXT

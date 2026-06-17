@@ -68,6 +68,15 @@
             background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='5' y='10' width='14' height='10' rx='2' stroke='%2394A3B8' stroke-width='1.8'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3' stroke='%2394A3B8' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M12 14v2' stroke='%2394A3B8' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
         }
 
+        input[name="totp_code"] {
+            display: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='4' y='3' width='16' height='18' rx='2' stroke='%2394A3B8' stroke-width='1.8'/%3E%3Cpath d='M9 8h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+        }
+
+        input[name="totp_code"].active {
+            display: block;
+        }
+
         input:focus {
             background-color: #fff;
             border-color: #0984e3;
@@ -221,6 +230,8 @@
             <form method="POST" id="loginForm">
                 <input type="text" name="username" placeholder="用户名" required>
                 <input type="password" name="password" placeholder="密码" required>
+                <input type="text" name="totp_code" id="twoFactorCode" inputmode="numeric" pattern="[0-9]*"
+                    autocomplete="one-time-code" placeholder="Google 验证码">
                 <button type="submit" id="loginButton">登录</button>
             </form>
         </div>
@@ -306,6 +317,7 @@
             const form = event.currentTarget;
             const button = document.getElementById('loginButton');
             const alertBox = document.getElementById('passwordAlert');
+            const twoFactorCode = document.getElementById('twoFactorCode');
             alertBox.style.display = 'none';
             button.disabled = true;
             button.textContent = '正在验证...';
@@ -322,6 +334,12 @@
                 if (loginData.success) {
                     window.location.href = loginData.redirect || '{{adminPath}}/dashboard';
                     return;
+                }
+                if (loginData.twoFactorRequired) {
+                    twoFactorCode.classList.add('active');
+                    twoFactorCode.required = true;
+                    twoFactorCode.focus();
+                    throw new Error(loginData.message || '请输入 Google 验证码。');
                 }
                 throw new Error(loginData.message || '登录失败，请重新输入。');
             } catch (error) {

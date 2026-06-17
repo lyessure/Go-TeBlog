@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-webauthn/webauthn v0.13.0
 	github.com/google/uuid v1.6.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/yuin/goldmark v1.7.16
 	modernc.org/sqlite v1.44.3
 )

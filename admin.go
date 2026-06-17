@@ -2,9 +2,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/md5"
+	"crypto/rand"
+	"crypto/sha1"
 	"database/sql"
+	"encoding/base32"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -30,6 +35,7 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	webauthnlib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+	qrcode "github.com/skip2/go-qrcode"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
@@ -407,6 +413,147 @@ func webAuthnOptionsJSON(value interface{}) template.JS {
 	return template.JS(raw)
 }
 
+type adminTOTPStatus struct {
+	Enabled bool
+	Secret  string
+	URI     string
+}
+
+func generateTOTPSecret() (string, error) {
+	buf := make([]byte, 20)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf), nil
+}
+
+func normalizeTOTPCode(code string) string {
+	code = strings.ReplaceAll(code, " ", "")
+	code = strings.TrimSpace(code)
+	if len(code) != 6 {
+		return ""
+	}
+	for _, r := range code {
+		if r < '0' || r > '9' {
+			return ""
+		}
+	}
+	return code
+}
+
+func hotpCode(secret string, counter int64) (string, error) {
+	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(strings.TrimSpace(secret)))
+	if err != nil {
+		return "", err
+	}
+	var counterBytes [8]byte
+	binary.BigEndian.PutUint64(counterBytes[:], uint64(counter))
+	mac := hmac.New(sha1.New, key)
+	mac.Write(counterBytes[:])
+	sum := mac.Sum(nil)
+	offset := sum[len(sum)-1] & 0x0f
+	bin := (int(sum[offset])&0x7f)<<24 |
+		(int(sum[offset+1])&0xff)<<16 |
+		(int(sum[offset+2])&0xff)<<8 |
+		(int(sum[offset+3]) & 0xff)
+	return fmt.Sprintf("%06d", bin%1000000), nil
+}
+
+func verifyTOTPCode(secret, code string, now time.Time) bool {
+	code = normalizeTOTPCode(code)
+	if code == "" || strings.TrimSpace(secret) == "" {
+		return false
+	}
+	counter := now.Unix() / 30
+	for skew := int64(-1); skew <= 1; skew++ {
+		expected, err := hotpCode(secret, counter+skew)
+		if err == nil && hmac.Equal([]byte(expected), []byte(code)) {
+			return true
+		}
+	}
+	return false
+}
+
+func getTOTPStatus(db *sql.DB, username, issuer string) adminTOTPStatus {
+	var status adminTOTPStatus
+	var enabled int
+	err := db.QueryRow("SELECT COALESCE(secret, ''), COALESCE(enabled, 0) FROM go_totp_settings WHERE username=?", username).
+		Scan(&status.Secret, &enabled)
+	if err != nil {
+		return status
+	}
+	status.Enabled = enabled == 1
+	status.URI = buildTOTPURI(username, status.Secret, issuer)
+	return status
+}
+
+func ensureTOTPSetup(db *sql.DB, username, issuer string) adminTOTPStatus {
+	status := getTOTPStatus(db, username, issuer)
+	if status.Secret != "" {
+		return status
+	}
+	secret, err := generateTOTPSecret()
+	if err != nil {
+		log.Printf("Failed to generate TOTP secret for user %s: %v", username, err)
+		return status
+	}
+	now := time.Now().Unix()
+	_, err = db.Exec(`INSERT INTO go_totp_settings (username, secret, enabled, created_at, updated_at)
+		VALUES (?, ?, 0, ?, ?)
+		ON CONFLICT(username) DO UPDATE SET secret=excluded.secret, updated_at=excluded.updated_at`,
+		username, secret, now, now)
+	if err != nil {
+		log.Printf("Failed to save TOTP secret for user %s: %v", username, err)
+		return status
+	}
+	status.Secret = secret
+	status.URI = buildTOTPURI(username, secret, issuer)
+	return status
+}
+
+func buildTOTPURI(username, secret, issuer string) string {
+	if strings.TrimSpace(secret) == "" {
+		return ""
+	}
+	issuer = strings.TrimSpace(issuer)
+	if issuer == "" {
+		issuer = "localhost"
+	}
+	label := url.QueryEscape(issuer + ":" + username)
+	issuerParam := url.QueryEscape(issuer)
+	return fmt.Sprintf("otpauth://totp/%s?secret=%s&issuer=%s&algorithm=SHA1&digits=6&period=30", label, secret, issuerParam)
+}
+
+func getTOTPIssuer(db *sql.DB) string {
+	siteURL := normalizeAdminSiteURL(getOption(db, "siteUrl", "http://localhost:8190"))
+	parsed, err := url.Parse(siteURL)
+	if err != nil {
+		return "localhost"
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return "localhost"
+	}
+	return host
+}
+
+func buildTOTPQRCodeDataURL(uri string) string {
+	uri = strings.TrimSpace(uri)
+	if uri == "" {
+		return ""
+	}
+	png, err := qrcode.Encode(uri, qrcode.Medium, 220)
+	if err != nil {
+		log.Printf("Failed to generate TOTP QR code: %v", err)
+		return ""
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+}
+
+func adminTOTPAllowed(username, group string) bool {
+	return strings.TrimSpace(username) != "guest" && strings.TrimSpace(group) != "visitor"
+}
+
 func getSkinConfig(db *sql.DB) SkinConfig {
 	theme := sanitizeThemeName(getOption(db, "theme", "default"), "default")
 	return SkinConfig{
@@ -542,6 +689,17 @@ func main() {
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_go_passkeys_username ON go_passkeys (username)`)
 	if err != nil {
 		log.Fatal("Failed to create passkeys index:", err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS go_totp_settings (
+		username TEXT PRIMARY KEY,
+		secret TEXT NOT NULL,
+		enabled INTEGER DEFAULT 0,
+		created_at INTEGER,
+		updated_at INTEGER
+	)`)
+	if err != nil {
+		log.Fatal("Failed to create TOTP settings table:", err)
 	}
 
 	// Ensure options table exists
@@ -732,10 +890,27 @@ func main() {
 		password := c.PostForm("password")
 		wantsJSON := strings.Contains(c.GetHeader("Accept"), "application/json") || c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 
-		var storedHash string
-		err := db.QueryRow("SELECT password FROM typecho_users WHERE name=?", username).Scan(&storedHash)
+		var storedHash, userGroup string
+		err := db.QueryRow(`SELECT password, COALESCE("group", 'visitor') FROM typecho_users WHERE name=?`, username).Scan(&storedHash, &userGroup)
 
 		if err == nil && checkTypechoHash(password, storedHash) {
+			totp := getTOTPStatus(db, username, getTOTPIssuer(db))
+			if adminTOTPAllowed(username, userGroup) && totp.Enabled && !verifyTOTPCode(totp.Secret, c.PostForm("totp_code"), time.Now()) {
+				if wantsJSON {
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"success":           false,
+						"twoFactorRequired": true,
+						"message":           "请输入 Google 验证器中的 6 位验证码。",
+					})
+					return
+				}
+				c.HTML(http.StatusUnauthorized, "admin_error.html", gin.H{
+					"AdminPath":    adminPath,
+					"ErrorTitle":   "登录失败",
+					"ErrorMessage": "请输入 Google 验证器中的 6 位验证码。",
+				})
+				return
+			}
 			if err := createAdminSession(db, c, username); err != nil {
 				if wantsJSON {
 					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "创建会话时出现错误，请重新尝试登录。"})
@@ -1184,20 +1359,34 @@ func main() {
 		c.Redirect(http.StatusFound, adminPath+"/login")
 	})
 
-	admin.GET("/profile", func(c *gin.Context) {
+	renderProfilePage := func(c *gin.Context, data gin.H) {
 		username, _ := c.Get("username")
 		adminPath, _ := c.Get("adminPath")
 		group, _ := c.Get("userGroup")
 		userGroup, _ := group.(string)
-		c.HTML(http.StatusOK, "admin_profile.html", gin.H{
-			"Username":         username,
-			"UserGroup":        userGroup,
-			"Tab":              "profile",
-			"AdminPath":        adminPath,
-			"Passkeys":         listAdminPasskeys(db, fmt.Sprint(username)),
-			"PasskeyAllowed":   adminPasskeysAllowed(fmt.Sprint(username), userGroup),
-			"PasskeySiteReady": adminPasskeySiteURLReady(db),
-		})
+		usernameStr := fmt.Sprint(username)
+		totpAllowed := adminTOTPAllowed(usernameStr, userGroup)
+		totpStatus := adminTOTPStatus{}
+		if totpAllowed {
+			totpStatus = ensureTOTPSetup(db, usernameStr, getTOTPIssuer(db))
+		}
+		data["Username"] = username
+		data["UserGroup"] = userGroup
+		data["Tab"] = "profile"
+		data["AdminPath"] = adminPath
+		data["Passkeys"] = listAdminPasskeys(db, usernameStr)
+		data["PasskeyAllowed"] = adminPasskeysAllowed(usernameStr, userGroup)
+		data["PasskeySiteReady"] = adminPasskeySiteURLReady(db)
+		data["TwoFactorAllowed"] = totpAllowed
+		data["TwoFactorEnabled"] = totpStatus.Enabled
+		data["TwoFactorSecret"] = totpStatus.Secret
+		data["TwoFactorURI"] = totpStatus.URI
+		data["TwoFactorQRCode"] = template.URL(buildTOTPQRCodeDataURL(totpStatus.URI))
+		c.HTML(http.StatusOK, "admin_profile.html", data)
+	}
+
+	admin.GET("/profile", func(c *gin.Context) {
+		renderProfilePage(c, gin.H{})
 	})
 
 	admin.POST("/profile/passkey/register/options", writeProtectMiddleware, func(c *gin.Context) {
@@ -1311,20 +1500,62 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "通行密钥已删除。"})
 	})
 
-	admin.POST("/profile", writeProtectMiddleware, func(c *gin.Context) {
-		username, _ := c.Get("username")
+	admin.POST("/profile/2fa/enable", writeProtectMiddleware, func(c *gin.Context) {
+		username := fmt.Sprint(c.MustGet("username"))
 		group, _ := c.Get("userGroup")
 		userGroup, _ := group.(string)
-		renderProfile := func(data gin.H) {
-			data["Username"] = username
-			data["UserGroup"] = userGroup
-			data["Tab"] = "profile"
-			data["AdminPath"] = adminPath
-			data["Passkeys"] = listAdminPasskeys(db, fmt.Sprint(username))
-			data["PasskeyAllowed"] = adminPasskeysAllowed(fmt.Sprint(username), userGroup)
-			data["PasskeySiteReady"] = adminPasskeySiteURLReady(db)
-			c.HTML(http.StatusOK, "admin_profile.html", data)
+		if !adminTOTPAllowed(username, userGroup) {
+			renderProfilePage(c, gin.H{"ErrorMessage": "guest 或访客用户不能启用 2FA。"})
+			return
 		}
+		status := ensureTOTPSetup(db, username, getTOTPIssuer(db))
+		if status.Secret == "" || !verifyTOTPCode(status.Secret, c.PostForm("totp_code"), time.Now()) {
+			renderProfilePage(c, gin.H{"ErrorMessage": "Google 验证码错误，请重新输入。"})
+			return
+		}
+		_, err := db.Exec("UPDATE go_totp_settings SET enabled=1, updated_at=? WHERE username=?", time.Now().Unix(), username)
+		if err != nil {
+			renderProfilePage(c, gin.H{"ErrorMessage": "启用 2FA 失败，请稍后重试。"})
+			return
+		}
+		renderProfilePage(c, gin.H{"SuccessMessage": "Google 验证器 2FA 已启用"})
+	})
+
+	admin.POST("/profile/2fa/disable", writeProtectMiddleware, func(c *gin.Context) {
+		username := fmt.Sprint(c.MustGet("username"))
+		group, _ := c.Get("userGroup")
+		userGroup, _ := group.(string)
+		if !adminTOTPAllowed(username, userGroup) {
+			renderProfilePage(c, gin.H{"ErrorMessage": "guest 或访客用户不能设置 2FA。"})
+			return
+		}
+		status := getTOTPStatus(db, username, getTOTPIssuer(db))
+		if !status.Enabled {
+			renderProfilePage(c, gin.H{"SuccessMessage": "Google 验证器 2FA 已关闭"})
+			return
+		}
+		if !verifyTOTPCode(status.Secret, c.PostForm("totp_code"), time.Now()) {
+			renderProfilePage(c, gin.H{"ErrorMessage": "Google 验证码错误，请重新输入。"})
+			return
+		}
+		secret, err := generateTOTPSecret()
+		if err != nil {
+			renderProfilePage(c, gin.H{"ErrorMessage": "关闭 2FA 失败，请稍后重试。"})
+			return
+		}
+		_, err = db.Exec("UPDATE go_totp_settings SET secret=?, enabled=0, updated_at=? WHERE username=?", secret, time.Now().Unix(), username)
+		if err != nil {
+			renderProfilePage(c, gin.H{"ErrorMessage": "关闭 2FA 失败，请稍后重试。"})
+			return
+		}
+		renderProfilePage(c, gin.H{"SuccessMessage": "Google 验证器 2FA 已关闭"})
+	})
+
+	admin.POST("/profile", writeProtectMiddleware, func(c *gin.Context) {
+		renderProfile := func(data gin.H) {
+			renderProfilePage(c, data)
+		}
+		username, _ := c.Get("username")
 		oldPassword := c.PostForm("old_password")
 		newPassword := c.PostForm("new_password")
 		confirmPassword := c.PostForm("confirm_password")
