@@ -559,7 +559,7 @@
                     <button type="button" class="settings-tab" data-settings-tab="comments" role="tab"
                         aria-selected="false"><i class="fas fa-shield-alt"></i>评论过滤</button>
                     <button type="button" class="settings-tab" data-settings-tab="ai" role="tab"
-                        aria-selected="false"><i class="fas fa-robot"></i>AI 系统</button>
+                        aria-selected="false"><i class="fas fa-robot"></i>AI系统参数</button>
                     <button type="button" class="settings-tab" data-settings-tab="advanced" role="tab"
                         aria-selected="false"><i class="fas fa-sliders-h"></i>其它设置</button>
                 </div>
@@ -910,10 +910,20 @@
                                     required>
                             </div>
                             <div class="form-group full-width">
-                                <label>AI 评论检测提示语</label>
-                                <span class="label-desc">用于前台评论垃圾检测。留空保存时会恢复默认提示语。</span>
-                                <textarea name="aiCommentPrompt" class="full-width" rows="5"
-                                    style="margin-top: 8px; font-family: inherit;">{{.AiCommentPrompt}}</textarea>
+                                <label>AI 模拟检测</label>
+                                <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，可选择测试语或输入自定义评论检查评论过滤 AI 是否可调用。{{end}}</span>
+                                <select id="aiTestContent" class="full-width"
+                                    style="margin-top: 8px; font-family: inherit;">
+                                    <option value="" selected>请选择测试语，或在下方输入自定义评论</option>
+                                    <option value="Spring is a good time to simplify your setup (25% off this month">Spring is a good time to simplify your setup (25% off this month</option>
+                                    <option value="Hello, nice to meet you">Hello, nice to meet you</option>
+                                </select>
+                                <textarea id="aiCustomTestContent" class="full-width" rows="2"
+                                    placeholder="输入自定义测试评论"
+                                    style="margin-top: 8px; font-family: inherit;"></textarea>
+                                <button type="button" class="btn-secondary" id="aiTestBtn" style="margin-top: 12px;" {{if eq .UserGroup "visitor"}}disabled{{end}}>
+                                    <i class="fas fa-vial" style="margin-right: 8px;"></i>检测
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -923,12 +933,13 @@
                 <div class="settings-section" data-settings-panel="ai" role="tabpanel">
                     <div class="section-header">
                         <i class="fas fa-robot"></i>
-                        <h3>AI 系统</h3>
+                        <h3>AI系统参数</h3>
                     </div>
                     <div class="section-body">
                         <div class="form-grid">
                             <div class="form-group full-width">
                                 <label>AI API URL</label>
+                                <span class="label-desc">只支持 `/chat/completions` 接口。</span>
                                 <input type="text" name="aiApiUrl" value="{{.AiApiUrl}}"
                                     placeholder="https://api.groq.com/...">
                             </div>
@@ -964,20 +975,10 @@
                                     style="margin-top: 8px; font-family: inherit;">{{.AiProofreadPrompt}}</textarea>
                             </div>
                             <div class="form-group full-width">
-                                <label>AI 连通性检测</label>
-                                <span class="label-desc">{{if eq .UserGroup "visitor"}}访客模式不可用。{{else}}可选操作，可选择测试语或输入自定义评论检查评论过滤 AI 是否可调用。{{end}}</span>
-                                <select id="aiTestContent" class="full-width"
-                                    style="margin-top: 8px; font-family: inherit;">
-                                    <option value="" selected>请选择测试语，或在下方输入自定义评论</option>
-                                    <option value="Spring is a good time to simplify your setup (25% off this month">Spring is a good time to simplify your setup (25% off this month</option>
-                                    <option value="Hello, nice to meet you">Hello, nice to meet you</option>
-                                </select>
-                                <textarea id="aiCustomTestContent" class="full-width" rows="2"
-                                    placeholder="输入自定义测试评论"
-                                    style="margin-top: 8px; font-family: inherit;"></textarea>
-                                <button type="button" class="btn-secondary" id="aiTestBtn" style="margin-top: 12px;" {{if eq .UserGroup "visitor"}}disabled{{end}}>
-                                    <i class="fas fa-vial" style="margin-right: 8px;"></i>检测
-                                </button>
+                                <label>AI 评论检测提示语</label>
+                                <span class="label-desc">用于前台评论垃圾检测。留空保存时会恢复默认提示语。</span>
+                                <textarea name="aiCommentPrompt" class="full-width" rows="5"
+                                    style="margin-top: 8px; font-family: inherit;">{{.AiCommentPrompt}}</textarea>
                             </div>
                         </div>
                     </div>
