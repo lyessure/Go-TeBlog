@@ -1045,11 +1045,7 @@
                                 <div class="backup-inline-hint" id="backupConfigHint"></div>
                             </div>
                         </div>
-                        <div class="form-grid" id="backupS3Fields">
-                            <div class="form-group full-width">
-                                <label>S3 兼容参数</label>
-                                <span class="label-desc">上传失败时，本地文件会保留。</span>
-                            </div>
+                        <div class="form-grid" id="backupS3Fields" style="margin-top: 25px;">
                             <div class="form-group">
                                 <label>S3 Endpoint</label>
                                 <input type="text" name="backupS3Endpoint" value="{{.BackupS3Endpoint}}" placeholder="https://s3.example.com">
@@ -1338,7 +1334,8 @@
 
             function updateBackupStorageFields() {
                 const enabled = storageTypeSelect.value === 's3';
-                s3Fields.style.opacity = enabled ? '1' : '0.55';
+                s3Fields.style.display = enabled ? 'grid' : 'none';
+                s3Fields.setAttribute('aria-hidden', enabled ? 'false' : 'true');
                 if (s3TestBtn) {
                     s3TestBtn.disabled = isVisitor || !enabled;
                 }
