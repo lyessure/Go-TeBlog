@@ -390,26 +390,16 @@
             }
         });
 
-        document.querySelectorAll('.tab-button').forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                const target = tab.dataset.tab;
-                document.querySelectorAll('.tab-button').forEach(function (item) {
-                    const active = item.dataset.tab === target;
-                    item.classList.toggle('active', active);
-                    item.setAttribute('aria-selected', active ? 'true' : 'false');
-                });
-                document.getElementById('passwordPanel').classList.toggle('active', target === 'password');
-                document.getElementById('passkeyPanel').classList.toggle('active', target === 'passkey');
-                document.getElementById('passwordAlert').style.display = 'none';
-                document.getElementById('twoFactorHint').style.display = 'none';
-                document.getElementById('passkeyAlert').style.display = 'none';
-            });
-        });
+        let passkeyLoginInProgress = false;
 
-        document.getElementById('passkeyLoginButton').addEventListener('click', async function () {
+        async function startPasskeyLogin() {
+            if (passkeyLoginInProgress) {
+                return;
+            }
             const button = document.getElementById('passkeyLoginButton');
             const alertBox = document.getElementById('passkeyAlert');
             alertBox.style.display = 'none';
+            passkeyLoginInProgress = true;
             button.disabled = true;
             const originalContent = button.textContent;
             button.textContent = '等待通行密钥...';
@@ -430,8 +420,30 @@
                 showAlert(alertBox, getPasskeyErrorMessage(error, '通行密钥登录失败。'), 'error');
                 button.disabled = false;
                 button.textContent = originalContent;
+                passkeyLoginInProgress = false;
             }
+        }
+
+        document.querySelectorAll('.tab-button').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                const target = tab.dataset.tab;
+                document.querySelectorAll('.tab-button').forEach(function (item) {
+                    const active = item.dataset.tab === target;
+                    item.classList.toggle('active', active);
+                    item.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                document.getElementById('passwordPanel').classList.toggle('active', target === 'password');
+                document.getElementById('passkeyPanel').classList.toggle('active', target === 'passkey');
+                document.getElementById('passwordAlert').style.display = 'none';
+                document.getElementById('twoFactorHint').style.display = 'none';
+                document.getElementById('passkeyAlert').style.display = 'none';
+                if (target === 'passkey') {
+                    startPasskeyLogin();
+                }
+            });
         });
+
+        document.getElementById('passkeyLoginButton').addEventListener('click', startPasskeyLogin);
     </script>
 </body>
 
