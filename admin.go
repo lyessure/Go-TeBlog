@@ -2194,7 +2194,7 @@ func main() {
 		}
 
 		// 访客趋势（按天去重 IP，按当前配置时区分日）
-		visitorTrendStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -(trendDays - 1))
+		visitorTrendStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -trendDays)
 		visitorTrendLabels := make([]string, 0, trendDays)
 		humanVisitorTrend := make([]int, 0, trendDays)
 		botVisitorTrend := make([]int, 0, trendDays)
