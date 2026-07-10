@@ -98,13 +98,18 @@
             padding-top: 85px;
         }
 
+        .users-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
         .top-bar {
             position: fixed;
             top: 0;
             left: 240px;
             right: 0;
             height: 55px;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(244, 242, 239, 0.88);
             backdrop-filter: blur(8px);
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             display: flex;
@@ -324,6 +329,7 @@
     {{template "admin_topbar" .}}
 
     <div class="content">
+        <div class="users-container">
         <a href="{{adminPath}}/user/add" class="btn btn-new"><i class="fas fa-user-plus"></i> 添加新用户</a>
         <table>
             <thead>
@@ -368,6 +374,7 @@
                 {{end}}
             </tbody>
         </table>
+        </div>
     </div>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
