@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>编辑文章 - Go-TeBlog</title>
     <link rel="stylesheet" href="/blog/usr/themes/default/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/blog/usr/themes/default/vditor/dist/index.css">
     <style>
         body {
             font-family: sans-serif;
@@ -82,7 +83,6 @@
             flex: 1;
             padding: 40px;
             display: flex;
-            gap: 20px;
             background: #f8fafc;
             margin-left: 220px;
             min-height: 100vh;
@@ -170,20 +170,24 @@
         }
 
         .main-edit {
-            flex: 3;
-        }
-
-        .side-panel {
-            flex: 1;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            align-self: flex-start;
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
         }
 
         .form-group {
             margin-bottom: 20px;
+        }
+
+        .editor-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .editor-heading label {
+            margin-bottom: 0;
         }
 
         label {
@@ -192,8 +196,7 @@
             font-weight: bold;
         }
 
-        input[type="text"],
-        textarea {
+        input[type="text"] {
             width: 100%;
             padding: 15px;
             border: 1px solid #d1d5db;
@@ -202,31 +205,51 @@
             font-size: 16px;
         }
 
-        textarea {
-            height: 650px !important;
-            font-family: "Courier New", Courier, monospace;
-            line-height: 1.6;
-            resize: vertical;
+        .editor-source {
+            display: none;
+        }
+
+        #editor {
+            background: #fff;
+        }
+
+        #editor .vditor {
+            border-color: #d1d5db;
+            border-radius: 4px;
+        }
+
+        #editor .vditor-toolbar {
+            border-radius: 4px 4px 0 0;
+        }
+
+        #editor .vditor-content {
+            min-height: 360px;
+        }
+
+        #editor .vditor-wysiwyg > .vditor-reset {
+            padding: 10px 20px !important;
         }
 
         .edit-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
             gap: 8px;
-            margin-bottom: 12px;
         }
 
         .edit-actions button {
-            width: 100%;
-            min-height: 38px;
-            padding: 9px 8px;
-            color: white;
-            border: none;
+            width: 34px;
+            min-height: 34px;
+            padding: 0;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
             border-radius: 4px;
+            background: #fff;
             cursor: pointer;
             font-size: 13px;
             font-weight: 600;
             white-space: nowrap;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
         }
 
         .edit-actions .action-tip {
@@ -234,30 +257,46 @@
         }
 
         .edit-actions button i {
-            margin-right: 5px;
+            margin-right: 0;
         }
 
-        .btn-save {
-            background: #10b981;
+        .edit-actions button:not(:disabled):hover {
+            border-color: #0984e3;
+            color: #0984e3;
+            background: #f0f7ff;
         }
 
-        .btn-preview {
-            background: #0984e3;
+        .edit-actions .attachment-trigger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            min-height: 34px;
+            padding: 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: #fff;
+            color: #64748b;
+            cursor: pointer;
         }
 
-        .btn-ai-proofread {
-            background: #0984e3;
+        .edit-actions .attachment-trigger:hover {
+            border-color: #0984e3;
+            color: #0984e3;
+            background: #f0f7ff;
         }
 
         .btn-ai-proofread:disabled {
-            background: #94a3b8;
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #94a3b8;
             cursor: not-allowed;
             opacity: 0.72;
         }
 
         .ai-proofread-status {
             display: none;
-            margin: -2px 0 12px;
+            margin: 8px 0 0;
             padding: 8px 10px;
             border-radius: 4px;
             background: #eff6ff;
@@ -272,6 +311,14 @@
         }
 
         .preview-layer-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.34);
+            display: none;
+            z-index: 900;
+        }
+
+        .attachment-layer-mask {
             position: fixed;
             inset: 0;
             background: rgba(15, 23, 42, 0.34);
@@ -295,7 +342,34 @@
             overflow: hidden;
         }
 
+        .attachment-layer {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: min(520px, calc(100vw - 48px));
+            max-height: min(620px, calc(100vh - 72px));
+            background: #fff;
+            border: 1px solid #dbe4ea;
+            border-radius: 8px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+            display: none;
+            z-index: 901;
+            overflow: hidden;
+        }
+
         .preview-layer-header {
+            height: 48px;
+            padding: 0 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        .attachment-layer-header {
             height: 48px;
             padding: 0 16px;
             border-bottom: 1px solid #e2e8f0;
@@ -316,6 +390,16 @@
             cursor: pointer;
         }
 
+        .attachment-layer-close {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #dbe4ea;
+            border-radius: 7px;
+            background: #f8fafc;
+            color: #64748b;
+            cursor: pointer;
+        }
+
         .preview-layer-body {
             padding: 20px;
             max-height: calc(min(760px, calc(100vh - 72px)) - 49px);
@@ -323,6 +407,34 @@
             color: #1e293b;
             line-height: 1.8;
             font-size: 15px;
+        }
+
+        .attachment-layer-body {
+            padding: 16px 20px 20px;
+            max-height: calc(min(620px, calc(100vh - 72px)) - 49px);
+            overflow: auto;
+        }
+
+        .attachment-preview {
+            position: fixed;
+            display: none;
+            z-index: 902;
+            width: 220px;
+            max-height: 180px;
+            padding: 5px;
+            border: 1px solid #dbe4ea;
+            border-radius: 6px;
+            background: #fff;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+            pointer-events: none;
+        }
+
+        .attachment-preview img {
+            display: block;
+            width: 100%;
+            max-height: 170px;
+            object-fit: contain;
+            border-radius: 3px;
         }
 
         .preview-layer-body img,
@@ -359,15 +471,14 @@
             line-height: 1.35;
         }
 
-        .attachment-box {
-            margin-top: 20px;
-        }
-
         .attachment-list {
             list-style: none;
             padding: 0;
             margin-top: 15px;
             border-top: 1px solid #eee;
+            max-height: min(420px, calc(100vh - 220px));
+            overflow-y: auto;
+            padding-right: 4px;
         }
 
         .attachment-item {
@@ -391,10 +502,93 @@
 
         .btn-del-att {
             color: #ef4444;
-            border: none;
-            background: none;
+            width: 28px;
+            height: 28px;
+            border: 1px solid #fecaca;
+            border-radius: 4px;
+            background: #fff;
             cursor: pointer;
             font-size: 12px;
+        }
+
+        .btn-del-att:hover {
+            background: #fef2f2;
+            border-color: #fca5a5;
+        }
+
+        .attachment-delete-mask {
+            position: fixed;
+            inset: 0;
+            display: none;
+            z-index: 903;
+            background: rgba(15, 23, 42, 0.34);
+        }
+
+        .attachment-delete-layer {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            display: none;
+            z-index: 904;
+            width: min(360px, calc(100vw - 48px));
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            border: 1px solid #dbe4ea;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+        }
+
+        .attachment-delete-layer h3 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 16px;
+        }
+
+        .attachment-delete-layer p {
+            margin: 10px 0 0;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .attachment-delete-message {
+            display: none;
+            margin-top: 10px;
+            color: #dc2626;
+            font-size: 12px;
+        }
+
+        .attachment-delete-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 18px;
+        }
+
+        .attachment-delete-actions button {
+            min-height: 32px;
+            padding: 0 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .attachment-delete-cancel {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #475569;
+        }
+
+        .attachment-delete-confirm {
+            border: 1px solid #dc2626;
+            background: #dc2626;
+            color: #fff;
+        }
+
+        .attachment-delete-confirm:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         .upload-hint {
@@ -424,48 +618,19 @@
             transform: translateY(0);
         }
 
-        .md-guide {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px dashed #f1f5f9;
-        }
-
-        .md-guide h4 {
-            font-size: 13px;
-            color: #64748b;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .md-guide-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .md-item {
-            font-size: 12px;
-            background: #f8fafc;
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid #f1f5f9;
-            color: #475569;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .md-item b {
-            color: #0ea5e9;
-            font-weight: 600;
-        }
-
-        .md-item span {
-            color: #94a3b8;
+        .typecho-more-note {
+            margin: 4px 0 8px;
             font-size: 11px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        .typecho-more-note code {
+            padding: 1px 4px;
+            border-radius: 3px;
+            background: #f1f5f9;
+            color: #64748b;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
     </style>
 </head>
@@ -501,55 +666,28 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>内容 (支持 Ctrl+V 粘贴图片上传)</label>
-                    <textarea id="editor" name="text" placeholder="在这里输入内容...">{{.Post.Text}}</textarea>
+                    <div class="editor-heading">
+                        <label>正文（支持粘贴图片）</label>
+                        <div class="edit-actions">
+                            <button type="button" class="btn-save" title="保存" aria-label="保存" onclick="document.getElementById('post-form').submit()"><i class="fas fa-save"></i></button>
+                            <button type="button" class="btn-preview" id="previewBtn" title="预览" aria-label="预览"><i class="fas fa-eye"></i></button>
+                            <span class="action-tip" title="{{if not .AiProofreadEnabled}}请先到系统设置中配置 AI 系统：AI API URL、AI Model 和 AI API Key{{else}}使用 AI 整理当前编辑框内容{{end}}">
+                                <button type="button" class="btn-ai-proofread" id="aiProofreadBtn" title="校稿" aria-label="校稿" {{if not .AiProofreadEnabled}}disabled{{end}}><i class="fas fa-spell-check"></i></button>
+                            </span>
+                            <button type="button" class="attachment-trigger" id="attachmentTrigger" title="附件管理" aria-label="附件管理" aria-expanded="false">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ai-proofread-status" id="aiProofreadStatus"></div>
+                    <div class="typecho-more-note">
+                        需要在列表页截断正文时，在分隔位置输入 <code>&lt;!--more--&gt;</code>
+                    </div>
+                    <textarea id="editor-source" class="editor-source">{{.Post.Text}}</textarea>
+                    <input type="hidden" name="text" id="post-content">
+                    <div id="editor"></div>
                 </div>
             </form>
-        </div>
-
-        <div class="side-panel">
-            <div class="edit-actions">
-                <button type="button" class="btn-save" onclick="document.getElementById('post-form').submit()"><i class="fas fa-save"></i> 保存</button>
-                <button type="button" class="btn-preview" id="previewBtn"><i class="fas fa-eye"></i> 预览</button>
-                <span class="action-tip" title="{{if not .AiProofreadEnabled}}请先到系统设置中配置 AI 系统：AI API URL、AI Model 和 AI API Key{{else}}使用 AI 整理当前编辑框内容{{end}}">
-                    <button type="button" class="btn-ai-proofread" id="aiProofreadBtn" {{if not .AiProofreadEnabled}}disabled{{end}}><i class="fas fa-spell-check"></i> 校稿</button>
-                </span>
-            </div>
-            <div class="ai-proofread-status" id="aiProofreadStatus"></div>
-
-            <div class="attachment-box">
-                <label>附件管理</label>
-                <div class="upload-hint">提示：直接在内容框粘贴图片或拖入图片即可自动上传。</div>
-                <ul class="attachment-list" id="attachment-list">
-                    {{range .Attachments}}
-                    <li class="attachment-item">
-                        <span onclick="insertAtCursor('![]({{.Path}})')" title="点击插入">{{.Title}}</span>
-                        <button type="button" class="btn-del-att"
-                            onclick="deleteAttachment('{{.Cid}}', '{{.Path}}', this)">删除</button>
-                    </li>
-                    {{else}}
-                    <li style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>
-                    {{end}}
-                </ul>
-            </div>
-
-            <div class="md-guide">
-                <h4><i class="fas fa-info-circle"></i> Markdown 速查</h4>
-                <div class="md-guide-grid">
-                    <div class="md-item"><b># 标题内容</b> <span>一级标题</span></div>
-                    <div class="md-item"><b>## 标题内容</b> <span>二级标题</span></div>
-                    <div class="md-item"><b>**加粗文字**</b> <span>强调</span></div>
-                    <div class="md-item"><b>*斜体文字*</b> <span>倾斜</span></div>
-                    <div class="md-item"><b>> 引用内容</b> <span>引用块</span></div>
-                    <div class="md-item"><b>- 列表项目</b> <span>无序列表</span></div>
-                    <div class="md-item"><b>1. 列表项目</b> <span>有序列表</span></div>
-                    <div class="md-item"><b>`行内代码`</b> <span>突出显示</span></div>
-                    <div class="md-item"><b>```语言...```</b> <span>代码块</span></div>
-                    <div class="md-item"><b>[描述](链接)</b> <span>超链接</span></div>
-                    <div class="md-item"><b>![描述](图片)</b> <span>外链图片</span></div>
-                    <div class="md-item"><b>---</b> <span>分割线</span></div>
-                </div>
-            </div>
         </div>
     </div>
     <div id="previewLayerMask" class="preview-layer-mask"></div>
@@ -562,9 +700,46 @@
         </div>
         <div id="previewLayerBody" class="preview-layer-body"></div>
     </div>
+    <div id="attachmentLayerMask" class="attachment-layer-mask"></div>
+    <div id="attachmentLayer" class="attachment-layer" role="dialog" aria-modal="true" aria-label="附件管理">
+        <div class="attachment-layer-header">
+            <span>附件管理</span>
+            <button type="button" class="attachment-layer-close" id="attachmentLayerClose" title="关闭" aria-label="关闭">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="attachment-layer-body">
+            <div class="upload-hint">直接在正文中粘贴图片或拖入图片即可上传。</div>
+            <ul class="attachment-list" id="attachment-list">
+                {{range .Attachments}}
+                <li class="attachment-item" data-path="{{.Path}}">
+                    <span onclick="insertAtCursor('![]({{.Path}})')" data-preview-path="{{.Path}}" title="点击插入">{{.Title}}</span>
+                    <button type="button" class="btn-del-att" title="删除附件" aria-label="删除附件"
+                        onclick="deleteAttachment('{{.Cid}}', '{{.Path}}', this)"><i class="fas fa-trash-alt"></i></button>
+                </li>
+                {{else}}
+                <li class="attachment-empty" style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+    <div class="attachment-preview" id="attachmentPreview"><img alt="附件预览"></div>
+    <div class="attachment-delete-mask" id="attachmentDeleteMask"></div>
+    <div class="attachment-delete-layer" id="attachmentDeleteLayer" role="dialog" aria-modal="true" aria-labelledby="attachmentDeleteTitle">
+        <h3 id="attachmentDeleteTitle">删除附件</h3>
+        <p>删除后会同时移除正文中的图片引用，此操作无法撤销。</p>
+        <div class="attachment-delete-message" id="attachmentDeleteMessage"></div>
+        <div class="attachment-delete-actions">
+            <button type="button" class="attachment-delete-cancel" id="attachmentDeleteCancel">取消</button>
+            <button type="button" class="attachment-delete-confirm" id="attachmentDeleteConfirm">确认删除</button>
+        </div>
+    </div>
 
+    <script src="/blog/usr/themes/default/vditor/dist/index.min.js"></script>
     <script>
-        const editor = document.getElementById('editor');
+        const editorSource = document.getElementById('editor-source');
+        const postContent = document.getElementById('post-content');
+        const postForm = document.getElementById('post-form');
         const postTitle = document.getElementById('post-title');
         const postCid = document.getElementById('post-cid').value;
         const previewBtn = document.getElementById('previewBtn');
@@ -572,11 +747,41 @@
         const previewLayerMask = document.getElementById('previewLayerMask');
         const previewLayerBody = document.getElementById('previewLayerBody');
         const previewCloseBtn = document.getElementById('previewCloseBtn');
+        const attachmentTrigger = document.getElementById('attachmentTrigger');
+        const attachmentLayer = document.getElementById('attachmentLayer');
+        const attachmentLayerMask = document.getElementById('attachmentLayerMask');
+        const attachmentLayerClose = document.getElementById('attachmentLayerClose');
+        const attachmentPreview = document.getElementById('attachmentPreview');
+        const attachmentPreviewImage = attachmentPreview.querySelector('img');
+        const attachmentDeleteMask = document.getElementById('attachmentDeleteMask');
+        const attachmentDeleteLayer = document.getElementById('attachmentDeleteLayer');
+        const attachmentDeleteMessage = document.getElementById('attachmentDeleteMessage');
+        const attachmentDeleteCancel = document.getElementById('attachmentDeleteCancel');
+        const attachmentDeleteConfirm = document.getElementById('attachmentDeleteConfirm');
         const aiProofreadBtn = document.getElementById('aiProofreadBtn');
         const aiProofreadStatus = document.getElementById('aiProofreadStatus');
         let previewTimer = null;
         let previewRequestId = 0;
         let previewOpen = false;
+        let pendingAttachmentDelete = null;
+        let editor;
+
+        function getEditorValue() {
+            return editor ? editor.getValue() : editorSource.value;
+        }
+
+        function setEditorValue(value) {
+            if (editor) {
+                editor.setValue(value || '');
+            } else {
+                editorSource.value = value || '';
+            }
+            postContent.value = value || '';
+        }
+
+        function syncEditorValue() {
+            postContent.value = getEditorValue();
+        }
 
         function openPreviewLayer() {
             previewOpen = true;
@@ -591,6 +796,18 @@
             previewLayerMask.style.display = 'none';
         }
 
+        function openAttachmentLayer() {
+            attachmentLayer.style.display = 'block';
+            attachmentLayerMask.style.display = 'block';
+            attachmentTrigger.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeAttachmentLayer() {
+            attachmentLayer.style.display = 'none';
+            attachmentLayerMask.style.display = 'none';
+            attachmentTrigger.setAttribute('aria-expanded', 'false');
+        }
+
         function scheduleEditorPreview() {
             if (!previewOpen) return;
             clearTimeout(previewTimer);
@@ -603,7 +820,7 @@
             const requestId = ++previewRequestId;
             const formData = new FormData();
             formData.append('title', postTitle.value);
-            formData.append('text', editor.value);
+            formData.append('text', getEditorValue());
             previewLayerBody.innerHTML = '<p>预览生成中...</p>';
 
             fetch('{{adminPath}}/post/preview', {
@@ -625,8 +842,14 @@
         previewBtn.addEventListener('click', openPreviewLayer);
         previewCloseBtn.addEventListener('click', closePreviewLayer);
         previewLayerMask.addEventListener('click', closePreviewLayer);
+        attachmentTrigger.addEventListener('click', openAttachmentLayer);
+        attachmentLayerClose.addEventListener('click', closeAttachmentLayer);
+        attachmentLayerMask.addEventListener('click', closeAttachmentLayer);
+        attachmentDeleteCancel.addEventListener('click', closeAttachmentDeleteLayer);
+        attachmentDeleteMask.addEventListener('click', closeAttachmentDeleteLayer);
+        attachmentDeleteConfirm.addEventListener('click', confirmAttachmentDelete);
         postTitle.addEventListener('input', scheduleEditorPreview);
-        editor.addEventListener('input', scheduleEditorPreview);
+        postForm.addEventListener('submit', syncEditorValue);
 
         function setAIProofreadStatus(message, isError) {
             aiProofreadStatus.textContent = message || '';
@@ -636,14 +859,15 @@
 
         if (aiProofreadBtn && !aiProofreadBtn.disabled) {
             aiProofreadBtn.addEventListener('click', function () {
-                const text = editor.value;
+                const text = getEditorValue();
                 if (!text.trim()) {
                     setAIProofreadStatus('请先输入文章内容。', true);
                     return;
                 }
 
                 aiProofreadBtn.disabled = true;
-                aiProofreadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 校稿中...';
+                aiProofreadBtn.title = '校稿中';
+                aiProofreadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 setAIProofreadStatus('AI 正在整理当前编辑框内容，请稍候。', false);
 
                 const formData = new FormData();
@@ -665,7 +889,7 @@
                         return data;
                     })
                     .then(data => {
-                        editor.value = data.text || '';
+                        setEditorValue(data.text || '');
                         scheduleEditorPreview();
                         setAIProofreadStatus('校稿完成，已替换当前编辑框内容。', false);
                     })
@@ -674,132 +898,142 @@
                     })
                     .finally(() => {
                         aiProofreadBtn.disabled = false;
-                        aiProofreadBtn.innerHTML = '<i class="fas fa-spell-check"></i> 校稿';
+                        aiProofreadBtn.title = '校稿';
+                        aiProofreadBtn.innerHTML = '<i class="fas fa-spell-check"></i>';
                     });
             });
         }
 
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && previewOpen) {
-                closePreviewLayer();
+            if (event.key === 'Escape') {
+                if (previewOpen) closePreviewLayer();
+                if (attachmentLayer.style.display === 'block') closeAttachmentLayer();
+                if (attachmentDeleteLayer.style.display === 'block') closeAttachmentDeleteLayer();
             }
         });
-
-        editor.addEventListener('paste', function (e) {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf("image") !== -1) {
-                    const file = items[i].getAsFile();
-                    if (!file) continue;
-
-                    // Use canvas to convert to WebP
-                    const reader = new FileReader();
-                    reader.onload = function (event) {
-                        const img = new Image();
-                        img.onload = function () {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            const ctx = canvas.getContext('2d');
-
-                            // WebP supports transparency, so no need for white background
-                            ctx.drawImage(img, 0, 0);
-
-                            canvas.toBlob(function (blob) {
-                                const newFile = new File([blob], "image.webp", { type: "image/webp" });
-                                uploadFile(newFile);
-                            }, 'image/webp', 0.85); // 0.85 quality
-                        };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                    e.preventDefault();
-                }
-            }
-        });
-
-        editor.addEventListener('drop', function (e) {
-            e.preventDefault();
-            const files = e.dataTransfer.files;
-            for (let i = 0; i < files.length; i++) {
-                uploadFile(files[i]);
-            }
-        });
-
-        function uploadFile(file) {
-            const formData = new FormData();
-            formData.append('editormd-image-file', file);
-            formData.append('cid', postCid);
-
-            insertAtCursor("\n![正在上传 " + file.name + "...]()\n");
-
-            fetch('{{adminPath}}/upload', {
-                method: 'POST',
-                body: formData
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const search = "![正在上传 " + file.name + "...]()";
-                    const replace = "![" + file.name + "](" + data.url + ")";
-                    editor.value = editor.value.replace(search, replace);
-                    scheduleEditorPreview();
-
-                    if (data.success) {
-                        const li = document.createElement('li');
-                        li.className = 'attachment-item';
-                        li.innerHTML = `<span onclick="insertAtCursor('![](${data.url})')">${data.url.split('/').pop()}</span><span style="color:#10b981;font-size:10px">(刚刚)</span>`;
-                        document.getElementById('attachment-list').appendChild(li);
-                    } else {
-                        alert("上传失败: " + data.message);
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("上传出错");
-                });
-        }
 
         function insertAtCursor(text) {
-            const startPos = editor.selectionStart;
-            const endPos = editor.selectionEnd;
-            editor.value = editor.value.substring(0, startPos) + text + editor.value.substring(endPos, editor.value.length);
-            editor.selectionStart = editor.selectionEnd = startPos + text.length;
-            editor.focus();
+            editor.insertMD(text);
+            syncEditorValue();
             scheduleEditorPreview();
         }
 
+        function appendUploadedAttachment(url, cid) {
+            const list = document.getElementById('attachment-list');
+            if (!list || list.querySelector(`[data-path="${CSS.escape(url)}"]`)) return;
+
+            const emptyItem = list.querySelector('.attachment-empty');
+            if (emptyItem) emptyItem.remove();
+
+            const item = document.createElement('li');
+            item.className = 'attachment-item';
+            item.dataset.path = url;
+            const name = document.createElement('span');
+            name.textContent = url.split('/').pop();
+            name.title = '点击插入';
+            name.dataset.previewPath = url;
+            name.addEventListener('click', () => insertAtCursor(`![](${url})`));
+            bindAttachmentPreview(name, url);
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn-del-att';
+            remove.title = '删除附件';
+            remove.setAttribute('aria-label', '删除附件');
+            remove.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            remove.addEventListener('click', () => deleteAttachment(cid, url, remove));
+            item.append(name, remove);
+            list.appendChild(item);
+        }
+
+        function isPreviewableImage(path) {
+            return /\.(apng|avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#].*)?$/i.test(path);
+        }
+
+        function positionAttachmentPreview(event) {
+            const offset = 14;
+            let left = event.clientX + offset;
+            let top = event.clientY + offset;
+            const previewWidth = attachmentPreview.offsetWidth || 230;
+            const previewHeight = attachmentPreview.offsetHeight || 190;
+
+            if (left + previewWidth > window.innerWidth - 12) left = event.clientX - previewWidth - offset;
+            if (top + previewHeight > window.innerHeight - 12) top = window.innerHeight - previewHeight - 12;
+
+            attachmentPreview.style.left = `${Math.max(12, left)}px`;
+            attachmentPreview.style.top = `${Math.max(12, top)}px`;
+        }
+
+        function bindAttachmentPreview(element, path) {
+            if (!isPreviewableImage(path)) return;
+
+            element.addEventListener('mouseenter', event => {
+                attachmentPreviewImage.src = path;
+                attachmentPreview.style.display = 'block';
+                positionAttachmentPreview(event);
+            });
+            element.addEventListener('mousemove', positionAttachmentPreview);
+            element.addEventListener('mouseleave', () => {
+                attachmentPreview.style.display = 'none';
+                attachmentPreviewImage.removeAttribute('src');
+            });
+        }
+
+        document.querySelectorAll('[data-preview-path]').forEach(element => {
+            bindAttachmentPreview(element, element.dataset.previewPath);
+        });
+
         function deleteAttachment(cid, path, btn) {
-            if (!confirm('确定要删除这个附件吗？此操作将同时从文章正文中移除该图片的引用。')) return;
+            pendingAttachmentDelete = { cid, path, btn };
+            attachmentDeleteMessage.textContent = '';
+            attachmentDeleteMessage.style.display = 'none';
+            attachmentDeleteConfirm.disabled = false;
+            attachmentDeleteConfirm.textContent = '确认删除';
+            attachmentDeleteLayer.style.display = 'block';
+            attachmentDeleteMask.style.display = 'block';
+        }
+
+        function closeAttachmentDeleteLayer() {
+            pendingAttachmentDelete = null;
+            attachmentDeleteLayer.style.display = 'none';
+            attachmentDeleteMask.style.display = 'none';
+        }
+
+        function confirmAttachmentDelete() {
+            if (!pendingAttachmentDelete) return;
+
+            const { cid, path, btn } = pendingAttachmentDelete;
+            attachmentDeleteConfirm.disabled = true;
+            attachmentDeleteConfirm.textContent = '删除中...';
+            attachmentDeleteMessage.style.display = 'none';
 
             const url = `{{adminPath}}/attachment/delete/${cid}?parent=${postCid}`;
             fetch(url, { method: 'POST' })
                 .then(res => {
-                    if (res.ok || res.redirected) {
-                        // 从正文中删除引用
-                        const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const regex = new RegExp('!\\s*\\[.*?\\]\\(' + escapedPath + '\\)', 'g');
-                        editor.value = editor.value.replace(regex, '');
-                        scheduleEditorPreview();
+                    if (!res.ok && !res.redirected) throw new Error('删除失败，请稍后重试。');
 
-                        // 从侧边栏列表中移除
-                        const item = btn.closest('.attachment-item');
-                        item.style.opacity = '0';
-                        item.style.transform = 'translateX(20px)';
-                        setTimeout(() => {
-                            item.remove();
-                            // 如果列表空了，显示“暂无附件”
-                            const list = document.getElementById('attachment-list');
-                            if (list.querySelectorAll('.attachment-item').length === 0) {
-                                list.innerHTML = '<li style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>';
-                            }
-                        }, 300);
-                    } else {
-                        alert("删除失败");
-                    }
+                    const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp('!\\s*\\[.*?\\]\\(' + escapedPath + '\\)', 'g');
+                    setEditorValue(getEditorValue().replace(regex, ''));
+                    scheduleEditorPreview();
+
+                    const item = btn.closest('.attachment-item');
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(20px)';
+                    closeAttachmentDeleteLayer();
+                    setTimeout(() => {
+                        item.remove();
+                        const list = document.getElementById('attachment-list');
+                        if (list.querySelectorAll('.attachment-item').length === 0) {
+                            list.innerHTML = '<li class="attachment-empty" style="font-size: 12px; color: #999; padding: 10px 0;">暂无附件</li>';
+                        }
+                    }, 300);
                 })
                 .catch(err => {
                     console.error(err);
-                    alert("删除出错");
+                    attachmentDeleteMessage.textContent = err.message || '删除失败，请稍后重试。';
+                    attachmentDeleteMessage.style.display = 'block';
+                    attachmentDeleteConfirm.disabled = false;
+                    attachmentDeleteConfirm.textContent = '确认删除';
                 });
         }
 
@@ -814,6 +1048,67 @@
                 }, 3000);
             }
         }
+
+        editor = new Vditor('editor', {
+            cdn: '/blog/usr/themes/default/vditor',
+            lang: 'zh_CN',
+            mode: 'wysiwyg',
+            minHeight: 360,
+            placeholder: '在这里输入内容...',
+            cache: {
+                enable: false
+            },
+            resize: {
+                enable: true,
+                position: 'bottom'
+            },
+            toolbar: [
+                'emoji', 'headings', 'bold', 'italic', 'strike', '|',
+                'line', 'quote', 'list', 'ordered-list', 'check', 'outdent', 'indent', '|',
+                'code', 'inline-code', 'link', 'table', '|',
+                'upload', 'undo', 'redo', '|', 'edit-mode', 'fullscreen'
+            ],
+            upload: {
+                multiple: false,
+                handler(files) {
+                    const file = files[0];
+                    if (!file) return '未获取到上传文件';
+
+                    const formData = new FormData();
+                    formData.append('editormd-image-file', file);
+                    formData.append('cid', postCid);
+
+                    return fetch('{{adminPath}}/upload', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(async response => {
+                            const data = await response.json().catch(() => ({}));
+                            if (!response.ok || !data.success || !data.url) {
+                                throw new Error(data.message || '上传失败');
+                            }
+                            return data;
+                        })
+                        .then(data => {
+                            const name = file.name.replace(/[\[\]]/g, '\\$&');
+                            editor.insertMD(`![${name}](${data.url})`);
+                            appendUploadedAttachment(data.url, data.cid);
+                            syncEditorValue();
+                            scheduleEditorPreview();
+                            return null;
+                        })
+                        .catch(error => error.message || '上传出错');
+                }
+            },
+            input(value) {
+                postContent.value = value;
+                scheduleEditorPreview();
+            },
+            after() {
+                syncEditorValue();
+            },
+            value: editorSource.value
+        });
     </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {

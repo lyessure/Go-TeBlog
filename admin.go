@@ -4631,15 +4631,22 @@ func main() {
 		}
 
 		// Register in database as attachment
+		var attachmentID int64
 		if parentCid != "" {
-			db.Exec("INSERT INTO typecho_contents (title, slug, created, modified, text, authorId, type, status, parent) VALUES (?, ?, ?, ?, ?, 1, 'attachment', 'publish', ?)",
+			result, err := db.Exec("INSERT INTO typecho_contents (title, slug, created, modified, text, authorId, type, status, parent) VALUES (?, ?, ?, ?, ?, 1, 'attachment', 'publish', ?)",
 				relPath, fileName, now.Unix(), now.Unix(), "", parentCid)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"success": 0, "message": "附件登记失败"})
+				return
+			}
+			attachmentID, _ = result.LastInsertId()
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"success": 1,
 			"message": "上传成功",
 			"url":     relPath,
+			"cid":     attachmentID,
 		})
 	})
 
