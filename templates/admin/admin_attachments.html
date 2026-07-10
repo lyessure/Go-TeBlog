@@ -648,12 +648,40 @@
             <span class="nav-arrow">&lt;</span>
             {{end}}
 
-            {{range $p := iterate 1 .TotalPages}}
-            {{if eq $p $.CurrentPage}}
-            <span class="active">{{$p}}</span>
+            {{$current := .CurrentPage}}
+            {{$total := .TotalPages}}
+            {{if le $total 7}}
+                {{range $p := iterate 1 $total}}
+                    {{if eq $p $current}}
+                    <span class="active">{{$p}}</span>
+                    {{else}}
+                    <a href="?page={{$p}}{{if $.SearchQuery}}&q={{urlquery $.SearchQuery}}{{end}}">{{$p}}</a>
+                    {{end}}
+                {{end}}
             {{else}}
-            <a href="?page={{$p}}{{if $.SearchQuery}}&q={{urlquery $.SearchQuery}}{{end}}">{{$p}}</a>
-            {{end}}
+                {{if eq $current 1}}
+                <span class="active">1</span>
+                {{else}}
+                <a href="?page=1{{if $.SearchQuery}}&q={{urlquery $.SearchQuery}}{{end}}">1</a>
+                {{end}}
+
+                {{if gt $current 4}}<span>···</span>{{end}}
+
+                {{range $p := pageRange $current $total}}
+                    {{if eq $p $current}}
+                    <span class="active">{{$p}}</span>
+                    {{else}}
+                    <a href="?page={{$p}}{{if $.SearchQuery}}&q={{urlquery $.SearchQuery}}{{end}}">{{$p}}</a>
+                    {{end}}
+                {{end}}
+
+                {{if lt $current (sub $total 3)}}<span>···</span>{{end}}
+
+                {{if eq $current $total}}
+                <span class="active">{{$total}}</span>
+                {{else}}
+                <a href="?page={{$total}}{{if $.SearchQuery}}&q={{urlquery $.SearchQuery}}{{end}}">{{$total}}</a>
+                {{end}}
             {{end}}
 
             {{if .HasNext}}
