@@ -1095,11 +1095,15 @@ func startBackupScheduleWorker(db *sql.DB) {
 	}
 }
 
-func getBackupStorageUsageMB(db *sql.DB) float64 {
+func getBackupDashboardInfo(db *sql.DB) (float64, string) {
 	localBackups, _ := listLocalBackupEntries()
 	var totalBytes int64
+	var latestBackup backupEntry
 	for _, item := range localBackups {
 		totalBytes += item.Bytes
+		if item.RawTime.After(latestBackup.RawTime) {
+			latestBackup = item
+		}
 	}
 
 	storageCfg := getBackupStorageConfig(db)
@@ -1107,10 +1111,62 @@ func getBackupStorageUsageMB(db *sql.DB) float64 {
 	if err == nil {
 		for _, item := range remoteBackups {
 			totalBytes += item.Bytes
+			if item.RawTime.After(latestBackup.RawTime) {
+				latestBackup = item
+			}
 		}
 	}
 
-	return float64(totalBytes) / (1024 * 1024)
+	latestBackupTime := "暂无成功备份"
+	if !latestBackup.RawTime.IsZero() {
+		latestBackupTime = latestBackup.RawTime.Format("2006-01-02 15:04:05") + " / " + latestBackup.Storage
+	} else if lastRunDate := getBackupScheduleConfig(db).LastRunDate; lastRunDate != "" {
+		latestBackupTime = lastRunDate
+	}
+
+	return float64(totalBytes) / (1024 * 1024), latestBackupTime
+}
+
+type dashboardStorageInfo struct {
+	UploadSize     string
+	BackupSize     string
+	LastBackupTime string
+}
+
+var dashboardStorageInfoCache = struct {
+	sync.Mutex
+	UpdatedAt time.Time
+	Data      dashboardStorageInfo
+}{}
+
+func getCachedDashboardStorageInfo(db *sql.DB) dashboardStorageInfo {
+	dashboardStorageInfoCache.Lock()
+	if !dashboardStorageInfoCache.UpdatedAt.IsZero() && time.Since(dashboardStorageInfoCache.UpdatedAt) < time.Minute {
+		data := dashboardStorageInfoCache.Data
+		dashboardStorageInfoCache.Unlock()
+		return data
+	}
+	dashboardStorageInfoCache.Unlock()
+
+	var uploadBytes int64
+	filepath.Walk("usr/uploads", func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			uploadBytes += info.Size()
+		}
+		return nil
+	})
+	backupUsageMB, lastBackupTime := getBackupDashboardInfo(db)
+	data := dashboardStorageInfo{
+		UploadSize:     fmt.Sprintf("%.2f MB", float64(uploadBytes)/(1024*1024)),
+		BackupSize:     fmt.Sprintf("%.2f MB", backupUsageMB),
+		LastBackupTime: lastBackupTime,
+	}
+
+	dashboardStorageInfoCache.Lock()
+	dashboardStorageInfoCache.Data = data
+	dashboardStorageInfoCache.UpdatedAt = time.Now()
+	dashboardStorageInfoCache.Unlock()
+	return data
 }
 
 type cloudflareAccessLogItem struct {
@@ -2142,23 +2198,28 @@ func main() {
 		visitorTrendLabels := make([]string, 0, trendDays)
 		humanVisitorTrend := make([]int, 0, trendDays)
 		botVisitorTrend := make([]int, 0, trendDays)
-
-		queryVisitorCount := func(dayStart, dayEnd int64, isBot int) int {
-			var count int
-			db.QueryRow(
-				"SELECT COUNT(DISTINCT ip) FROM go_stats_logs WHERE created >= ? AND created < ? AND is_bot = ?",
-				dayStart, dayEnd, isBot,
-			).Scan(&count)
-			return count
-		}
+		humanPVTrend := make([]int, 0, trendDays)
+		botPVTrend := make([]int, 0, trendDays)
 
 		for i := 0; i < trendDays; i++ {
 			day := visitorTrendStart.AddDate(0, 0, i)
 			visitorTrendLabels = append(visitorTrendLabels, day.Format("01-02"))
 			dayStart := day.Unix()
 			dayEnd := day.AddDate(0, 0, 1).Unix()
-			humanVisitorTrend = append(humanVisitorTrend, queryVisitorCount(dayStart, dayEnd, 0))
-			botVisitorTrend = append(botVisitorTrend, queryVisitorCount(dayStart, dayEnd, 1))
+			var humanVisitors, botVisitors, humanPV, botPV int
+			db.QueryRow(`
+				SELECT
+					COUNT(DISTINCT CASE WHEN is_bot = 0 THEN ip END),
+					COUNT(DISTINCT CASE WHEN is_bot = 1 THEN ip END),
+					COALESCE(SUM(CASE WHEN is_bot = 0 THEN 1 ELSE 0 END), 0),
+					COALESCE(SUM(CASE WHEN is_bot = 1 THEN 1 ELSE 0 END), 0)
+				FROM go_stats_logs
+				WHERE created >= ? AND created < ?
+			`, dayStart, dayEnd).Scan(&humanVisitors, &botVisitors, &humanPV, &botPV)
+			humanVisitorTrend = append(humanVisitorTrend, humanVisitors)
+			botVisitorTrend = append(botVisitorTrend, botVisitors)
+			humanPVTrend = append(humanPVTrend, humanPV)
+			botPVTrend = append(botPVTrend, botPV)
 		}
 
 		visitorTrendLabelsJSON, err := json.Marshal(visitorTrendLabels)
@@ -2172,6 +2233,14 @@ func main() {
 		botVisitorTrendJSON, err := json.Marshal(botVisitorTrend)
 		if err != nil {
 			botVisitorTrendJSON = []byte("[]")
+		}
+		humanPVTrendJSON, err := json.Marshal(humanPVTrend)
+		if err != nil {
+			humanPVTrendJSON = []byte("[]")
+		}
+		botPVTrendJSON, err := json.Marshal(botPVTrend)
+		if err != nil {
+			botPVTrendJSON = []byte("[]")
 		}
 
 		type cfShieldLogItem struct {
@@ -2227,14 +2296,32 @@ func main() {
 		memUsed := formatMem(float64(m.Alloc) / (1024 * 1024))
 
 		var totalMem int
-		var memFree string
+		var totalMemMB float64
+		var availableMemMB float64
+		systemUptime := "获取失败"
 		var si syscall.Sysinfo_t
 		if err := syscall.Sysinfo(&si); err == nil {
 			// 将字节转换为 GB，并取整（向上取整以补偿内核占用空间）
 			ramBytes := float64(si.Totalram) * float64(si.Unit)
 			totalMem = int((ramBytes + (512 * 1024 * 1024)) / (1024 * 1024 * 1024))
+			totalMemMB = ramBytes / (1024 * 1024)
 			// 默认使用 syscall 的 Freeram（跨平台兼容）
-			memFree = formatMem(float64(si.Freeram) * float64(si.Unit) / (1024 * 1024))
+			availableMemMB = float64(si.Freeram) * float64(si.Unit) / (1024 * 1024)
+
+			uptimeSeconds := int64(si.Uptime)
+			days := uptimeSeconds / 86400
+			hours := (uptimeSeconds % 86400) / 3600
+			minutes := (uptimeSeconds % 3600) / 60
+			seconds := uptimeSeconds % 60
+			if days > 0 {
+				systemUptime = fmt.Sprintf("%d 天 %d 小时 %d 分钟 %d 秒", days, hours, minutes, seconds)
+			} else if hours > 0 {
+				systemUptime = fmt.Sprintf("%d 小时 %d 分钟 %d 秒", hours, minutes, seconds)
+			} else if minutes > 0 {
+				systemUptime = fmt.Sprintf("%d 分钟 %d 秒", minutes, seconds)
+			} else {
+				systemUptime = fmt.Sprintf("%d 秒", seconds)
+			}
 		}
 
 		// Linux 上尝试获取 MemAvailable（更准确的可用内存，包含 buffer/cache）
@@ -2246,7 +2333,7 @@ func main() {
 						parts := strings.Fields(line)
 						if len(parts) >= 2 {
 							if kb, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
-								memFree = formatMem(float64(kb) / 1024)
+								availableMemMB = float64(kb) / 1024
 							}
 							break
 						}
@@ -2255,35 +2342,48 @@ func main() {
 			}
 		}
 
-		// 目录占用统计函数
-		getDirSize := func(path string) float64 {
-			var size int64
-			filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-				if err == nil && !info.IsDir() {
-					size += info.Size()
-				}
-				return nil
-			})
-			return float64(size) / (1024 * 1024)
+		systemMem := "获取失败"
+		memoryPercent := 0
+		if totalMemMB > 0 {
+			usedMemMB := totalMemMB - availableMemMB
+			if usedMemMB < 0 {
+				usedMemMB = 0
+			}
+			memoryPercent = int(usedMemMB/totalMemMB*100 + 0.5)
+			systemMem = fmt.Sprintf("%s 已用 / %s 总计", formatMem(usedMemMB), formatMem(totalMemMB))
 		}
 
 		// 剩余磁盘空间 (/)
 		var diskFree string
+		diskPercent := 0
 		var fs syscall.Statfs_t
 		if err := syscall.Statfs("/", &fs); err == nil {
 			free := float64(fs.Bavail*uint64(fs.Bsize)) / (1024 * 1024 * 1024)
 			total := float64(fs.Blocks*uint64(fs.Bsize)) / (1024 * 1024 * 1024)
-			diskFree = fmt.Sprintf("%.1f GB 可用 / %.1f GB 总计", free, total)
+			used := total - free
+			if used < 0 {
+				used = 0
+			}
+			if total > 0 {
+				diskPercent = int(used/total*100 + 0.5)
+			}
+			diskFree = fmt.Sprintf("%.1f GB 已用 / %.1f GB 总计", used, total)
 		} else {
 			diskFree = "获取失败"
 		}
 
+		storageInfo := getCachedDashboardStorageInfo(db)
+
 		// 系统负载
 		var sysLoad string
+		loadPercent := 0
 		if loadData, err := os.ReadFile("/proc/loadavg"); err == nil {
 			parts := strings.Fields(string(loadData))
 			if len(parts) >= 3 {
 				sysLoad = fmt.Sprintf("%s / %s / %s (1/5/15 min)", parts[0], parts[1], parts[2])
+				if oneMinuteLoad, err := strconv.ParseFloat(parts[0], 64); err == nil && runtime.NumCPU() > 0 {
+					loadPercent = int(oneMinuteLoad/float64(runtime.NumCPU())*100 + 0.5)
+				}
 			} else {
 				sysLoad = "解析失败"
 			}
@@ -2332,19 +2432,27 @@ func main() {
 			"VisitorTrendLabels":    template.JS(visitorTrendLabelsJSON),
 			"HumanVisitorTrend":     template.JS(humanVisitorTrendJSON),
 			"BotVisitorTrend":       template.JS(botVisitorTrendJSON),
+			"HumanPVTrend":          template.JS(humanPVTrendJSON),
+			"BotPVTrend":            template.JS(botPVTrendJSON),
 			"VisitorTrendDays":      trendDays,
 			"RetentionLabel":        retentionLabel,
 			"DbSize":                dbSize,
-			"MemUsed":               memUsed + " / " + memFree,
+			"MemUsed":               memUsed,
+			"SystemMem":             systemMem,
+			"MemoryPercent":         memoryPercent,
+			"SystemUptime":          systemUptime,
 			"GoVersion":             runtime.Version(),
 			"OS":                    runtime.GOOS,
 			"Arch":                  runtime.GOARCH,
 			"CPUs":                  runtime.NumCPU(),
 			"TotalMem":              totalMem,
-			"UploadSize":            fmt.Sprintf("%.2f MB", getDirSize("usr/uploads")),
-			"BackupSize":            fmt.Sprintf("%.2f MB", getBackupStorageUsageMB(db)),
+			"UploadSize":            storageInfo.UploadSize,
+			"BackupSize":            storageInfo.BackupSize,
+			"LastBackupTime":        storageInfo.LastBackupTime,
 			"DiskFree":              diskFree,
+			"DiskPercent":           diskPercent,
 			"SysLoad":               sysLoad,
+			"LoadPercent":           loadPercent,
 			"CfShieldActive":        cfShieldActive,
 			"CfShieldStatus":        cfShieldStatus,
 			"CfShieldUntil":         cfShieldUntil,
@@ -2353,6 +2461,148 @@ func main() {
 			"CfShieldLogs":          cfShieldLogs,
 			"CfMinuteLimit":         getOption(db, "cfRequestLimitPerMinute", "1000"),
 			"CfAutoDisableMinutes":  getOption(db, "cfShieldAutoDisableMinutes", "30"),
+		})
+	})
+
+	admin.GET("/dashboard/system-resources", func(c *gin.Context) {
+		formatMem := func(mb float64) string {
+			if mb >= 1024 {
+				return fmt.Sprintf("%.2f GB", mb/1024)
+			}
+			return fmt.Sprintf("%.2f MB", mb)
+		}
+
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+		goMemory := formatMem(float64(memStats.Alloc) / (1024 * 1024))
+
+		memorySummary := "获取失败"
+		memoryPercent := 0
+		uptime := "获取失败"
+		var totalMemMB float64
+		var availableMemMB float64
+		var si syscall.Sysinfo_t
+		if err := syscall.Sysinfo(&si); err == nil {
+			totalMemMB = float64(si.Totalram) * float64(si.Unit) / (1024 * 1024)
+			availableMemMB = float64(si.Freeram) * float64(si.Unit) / (1024 * 1024)
+
+			uptimeSeconds := int64(si.Uptime)
+			days := uptimeSeconds / 86400
+			hours := (uptimeSeconds % 86400) / 3600
+			minutes := (uptimeSeconds % 3600) / 60
+			seconds := uptimeSeconds % 60
+			if days > 0 {
+				uptime = fmt.Sprintf("%d 天 %d 小时 %d 分钟 %d 秒", days, hours, minutes, seconds)
+			} else if hours > 0 {
+				uptime = fmt.Sprintf("%d 小时 %d 分钟 %d 秒", hours, minutes, seconds)
+			} else if minutes > 0 {
+				uptime = fmt.Sprintf("%d 分钟 %d 秒", minutes, seconds)
+			} else {
+				uptime = fmt.Sprintf("%d 秒", seconds)
+			}
+		}
+
+		if data, err := os.ReadFile("/proc/meminfo"); err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				if !strings.HasPrefix(line, "MemAvailable:") {
+					continue
+				}
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					if kb, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+						availableMemMB = float64(kb) / 1024
+					}
+				}
+				break
+			}
+		}
+
+		if totalMemMB > 0 {
+			usedMemMB := totalMemMB - availableMemMB
+			if usedMemMB < 0 {
+				usedMemMB = 0
+			}
+			memoryPercent = int(usedMemMB/totalMemMB*100 + 0.5)
+			memorySummary = fmt.Sprintf("%s 已用 / %s 总计", formatMem(usedMemMB), formatMem(totalMemMB))
+		}
+
+		loadSummary := "不支持 (Linux)"
+		loadPercent := 0
+		if loadData, err := os.ReadFile("/proc/loadavg"); err == nil {
+			parts := strings.Fields(string(loadData))
+			if len(parts) >= 3 {
+				loadSummary = fmt.Sprintf("%s / %s / %s (1/5/15 min)", parts[0], parts[1], parts[2])
+				if oneMinuteLoad, err := strconv.ParseFloat(parts[0], 64); err == nil && runtime.NumCPU() > 0 {
+					loadPercent = int(oneMinuteLoad/float64(runtime.NumCPU())*100 + 0.5)
+				}
+			}
+		}
+
+		diskSummary := "获取失败"
+		diskPercent := 0
+		var fs syscall.Statfs_t
+		if err := syscall.Statfs("/", &fs); err == nil {
+			free := float64(fs.Bavail*uint64(fs.Bsize)) / (1024 * 1024 * 1024)
+			total := float64(fs.Blocks*uint64(fs.Bsize)) / (1024 * 1024 * 1024)
+			used := total - free
+			if used < 0 {
+				used = 0
+			}
+			if total > 0 {
+				diskPercent = int(used/total*100 + 0.5)
+			}
+			diskSummary = fmt.Sprintf("%.1f GB 已用 / %.1f GB 总计", used, total)
+		}
+
+		dbSize := "0 MB"
+		if dbFile, err := os.Stat("blog.sqlite"); err == nil {
+			dbSize = fmt.Sprintf("%.2f MB", float64(dbFile.Size())/(1024*1024))
+		}
+
+		storageInfo := getCachedDashboardStorageInfo(db)
+
+		cfShieldActive := getOption(db, "cfShieldActive", "0") == "1"
+		cfShieldStatus := "未激活"
+		cfShieldUntil := ""
+		if cfShieldActive {
+			cfShieldStatus = "已开启"
+			untilUnix, err := strconv.ParseInt(strings.TrimSpace(getOption(db, "cfShieldUntil", "0")), 10, 64)
+			if err == nil && untilUnix > 0 {
+				cfShieldUntil = "(自动关闭: " + time.Unix(untilUnix, 0).Format("2006-01-02 15:04:05") + ")"
+			} else {
+				cfShieldUntil = "(已开启，未获取到关闭时间)"
+			}
+		}
+
+		cfShieldLogCount := 0
+		latestCfShieldIP := ""
+		latestCfShieldCreated := int64(0)
+		db.QueryRow("SELECT COUNT(*) FROM go_cf_shield_logs").Scan(&cfShieldLogCount)
+		db.QueryRow("SELECT COALESCE(ip, ''), COALESCE(created, 0) FROM go_cf_shield_logs ORDER BY created DESC, id DESC LIMIT 1").Scan(&latestCfShieldIP, &latestCfShieldCreated)
+		cfShieldLatest := "暂无拦截日志"
+		if latestCfShieldIP != "" && latestCfShieldCreated > 0 {
+			cfShieldLatest = fmt.Sprintf("最近触发来源: %s / %s", latestCfShieldIP, time.Unix(latestCfShieldCreated, 0).Format("2006-01-02 15:04:05"))
+		}
+
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusOK, gin.H{
+			"success":          true,
+			"memorySummary":    memorySummary,
+			"memoryPercent":    memoryPercent,
+			"goMemory":         goMemory,
+			"loadSummary":      loadSummary,
+			"loadPercent":      loadPercent,
+			"uptime":           uptime,
+			"diskSummary":      diskSummary,
+			"diskPercent":      diskPercent,
+			"dbSize":           dbSize,
+			"uploadSize":       storageInfo.UploadSize,
+			"backupSize":       storageInfo.BackupSize,
+			"lastBackupTime":   storageInfo.LastBackupTime,
+			"cfShieldStatus":   cfShieldStatus,
+			"cfShieldUntil":    cfShieldUntil,
+			"cfShieldLatest":   cfShieldLatest,
+			"cfShieldLogCount": cfShieldLogCount,
 		})
 	})
 

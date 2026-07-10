@@ -179,45 +179,69 @@
             margin: 0 auto;
         }
 
-        .page-header {
+        .dashboard-summary {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 20px;
+            margin-bottom: 22px;
+        }
+
+        .summary-panel {
+            background: #ffffff;
+            padding: 18px;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+        }
+
+        .summary-heading {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 14px;
         }
 
-        .page-header h1 {
+        .summary-heading h2 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             margin: 0;
-            font-size: 1.4em;
             color: #1e293b;
-            font-weight: 700;
-            line-height: 1.2;
+            font-size: 15px;
         }
 
-        .page-header p {
-            margin: 4px 0 0 0;
-            color: #64748b;
-            font-size: 13px;
+        .summary-heading h2 i {
+            color: #0984e3;
+        }
+
+        .summary-heading span {
+            color: #94a3b8;
+            font-size: 11px;
         }
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 14px;
-            margin-bottom: 20px;
+            gap: 12px;
+        }
+
+        .content-stats {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .traffic-stats {
+            grid-template-columns: repeat(2, 1fr);
         }
 
         .stat-card {
-            background: white;
-            padding: 16px 18px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            gap: 14px;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 11px;
+            border: 1px solid #edf2f7;
             transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card.stat-traffic {
+            background: linear-gradient(145deg, #f0f9ff 0%, #ffffff 100%);
+            border-color: #dbeafe;
         }
 
         .stat-card:hover {
@@ -234,6 +258,7 @@
             justify-content: center;
             font-size: 1.15em;
             flex-shrink: 0;
+            margin-bottom: 14px;
         }
 
         .icon-posts {
@@ -265,11 +290,37 @@
         }
 
         .stat-info .value {
-            font-size: 1.45em;
+            font-size: 1.65em;
             font-weight: 700;
             color: #1e293b;
             margin-top: 2px;
             line-height: 1.15;
+        }
+
+        .stat-detail {
+            margin-top: 7px;
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .stat-detail.traffic-human {
+            color: #059669;
+        }
+
+        .stat-detail.traffic-bot {
+            color: #0284c7;
+        }
+
+        .stat-split {
+            display: block;
+            font-size: 0.42em;
+            color: #94a3b8;
+            font-weight: 400;
+            margin: 5px 0 0;
+        }
+
+        .stat-split small {
+            font-size: 1em;
         }
 
         .dashboard-grid {
@@ -278,8 +329,15 @@
             gap: 20px;
         }
 
-        .chart-card {
+        .trend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
             margin-bottom: 22px;
+        }
+
+        .chart-card {
+            min-width: 0;
         }
 
         .trend-header {
@@ -427,6 +485,10 @@
             gap: 8px;
         }
 
+        .card-header h2 i {
+            color: #0984e3;
+        }
+
         .card-body {
             padding: 12px 14px 14px;
         }
@@ -440,6 +502,8 @@
         .system-info-list li {
             display: flex;
             justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
             padding: 12px 0;
             border-bottom: 1px solid #f1f5f9;
             font-size: 14px;
@@ -451,12 +515,88 @@
 
         .info-label {
             color: #64748b;
+            flex: 0 0 145px;
         }
 
         .info-value {
+            flex: 1;
+            min-width: 0;
             color: #1e293b;
             font-weight: 500;
             font-family: monospace;
+            text-align: right;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
+
+        .resource-info {
+            max-width: 440px;
+        }
+
+        .resource-line {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .resource-percent {
+            min-width: 38px;
+            color: #0984e3;
+            font-weight: 700;
+        }
+
+        .resource-progress {
+            display: block;
+            width: 100%;
+            height: 6px;
+            margin-top: 7px;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .resource-progress::-webkit-progress-bar {
+            border-radius: 999px;
+            background: #e2e8f0;
+        }
+
+        .resource-progress::-webkit-progress-value {
+            border-radius: 999px;
+            background: linear-gradient(90deg, #0984e3, #38bdf8);
+        }
+
+        .resource-progress::-moz-progress-bar {
+            border-radius: 999px;
+            background: linear-gradient(90deg, #0984e3, #38bdf8);
+        }
+
+        .resource-progress.disk::-webkit-progress-value {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .resource-progress.disk::-moz-progress-bar {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .resource-progress.is-warning::-webkit-progress-value {
+            background: linear-gradient(90deg, #f59e0b, #ef4444);
+        }
+
+        .resource-progress.is-warning::-moz-progress-bar {
+            background: linear-gradient(90deg, #f59e0b, #ef4444);
+        }
+
+        .resource-note {
+            display: block;
+            margin-top: 5px;
+            color: #64748b;
+            font-size: 11px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         .quick-actions {
@@ -765,6 +905,14 @@
         }
 
         @media (max-width: 960px) {
+            .trend-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-summary {
+                grid-template-columns: 1fr;
+            }
+
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
@@ -795,13 +943,30 @@
                 padding: 20px;
             }
 
-            .page-header {
-                align-items: flex-start;
+            .content-stats,
+            .traffic-stats {
+                grid-template-columns: 1fr;
             }
 
             .system-info-list li {
                 flex-direction: column;
                 gap: 8px;
+            }
+
+            .info-label {
+                flex-basis: auto;
+            }
+
+            .info-value {
+                text-align: left;
+            }
+
+            .resource-info {
+                width: 100%;
+            }
+
+            .resource-line {
+                justify-content: space-between;
             }
 
             .quick-actions {
@@ -825,75 +990,94 @@
 
     <div class="content">
         <div class="container">
-            <div class="page-header">
-                <div>
-                    <h1>控制台概览</h1>
-                    <p>欢迎回来，{{.Username}}。这是您站点的实时运行数据。</p>
-                </div>
+            <div class="dashboard-summary">
+                <section class="summary-panel">
+                    <div class="summary-heading">
+                        <h2><i class="fas fa-layer-group"></i> 内容概况</h2>
+                        <span>近 7 天变化</span>
+                    </div>
+                    <div class="stats-grid content-stats">
+                        <div class="stat-card">
+                            <div class="stat-icon icon-posts"><i class="fas fa-file-alt"></i></div>
+                            <div class="stat-info">
+                                <h3>文章</h3>
+                                <div class="value">{{.PostCount}}</div>
+                                <div class="stat-detail">新增 {{.RecentPostCount}} 篇</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-comments"><i class="fas fa-comments"></i></div>
+                            <div class="stat-info">
+                                <h3>评论</h3>
+                                <div class="value">{{.CommentCount}}</div>
+                                <div class="stat-detail">新增 {{.RecentCommentCount}} 条</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-attachments"><i class="fas fa-paperclip"></i></div>
+                            <div class="stat-info">
+                                <h3>附件</h3>
+                                <div class="value">{{.AttachmentCount}}</div>
+                                <div class="stat-detail">新增 {{.RecentAttachmentCount}} 个</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="summary-panel">
+                    <div class="summary-heading">
+                        <h2><i class="fas fa-bolt"></i> 今日流量</h2>
+                        <span>真人 / 机器人</span>
+                    </div>
+                    <div class="stats-grid traffic-stats">
+                        <div class="stat-card stat-traffic">
+                            <div class="stat-icon" style="background: #ecfdf5; color: #059669;"><i class="fas fa-eye"></i></div>
+                            <div class="stat-info">
+                                <h3>浏览 PV</h3>
+                                <div class="value">{{.TodayPV}} <span class="stat-split">机器人 {{.TodayBotPV}}</span></div>
+                                <div class="stat-detail traffic-human">{{.RetentionLabel}} {{.TotalPV}} / {{.TotalBotPV}}</div>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-traffic">
+                            <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;"><i class="fas fa-user-friends"></i></div>
+                            <div class="stat-info">
+                                <h3>访客 IP</h3>
+                                <div class="value">{{.TodayIP}} <span class="stat-split">机器人 {{.TodayBotIP}}</span></div>
+                                <div class="stat-detail traffic-bot">{{.RetentionLabel}} {{.TotalIP}} / {{.TotalBotIP}}</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon icon-posts"><i class="fas fa-file-alt"></i></div>
-                    <div class="stat-info">
-                        <h3>总文章数</h3>
-                        <div class="value">{{.PostCount}}</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">7天内新增: {{.RecentPostCount}}</div>
+            <div class="trend-grid">
+                <div class="card chart-card">
+                    <div class="card-header trend-header">
+                        <h2><i class="fas fa-user-friends"></i> 最近 {{.VisitorTrendDays}} 天访客</h2>
+                        <div class="trend-legend">
+                            <span class="trend-legend-item"><span class="trend-dot trend-dot-human"></span> 真人</span>
+                            <span class="trend-legend-item"><span class="trend-dot trend-dot-bot"></span> 机器人</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-shell">
+                            <div id="visitor-trend-chart"></div>
+                        </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-comments"><i class="fas fa-comments"></i></div>
-                    <div class="stat-info">
-                        <h3>总评论数</h3>
-                        <div class="value">{{.CommentCount}}</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">7天内新增: {{.RecentCommentCount}}</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon icon-attachments"><i class="fas fa-paperclip"></i></div>
-                    <div class="stat-info">
-                        <h3>附件数量</h3>
-                        <div class="value">{{.AttachmentCount}}</div>
-                        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">7天内新增: {{.RecentAttachmentCount}}</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: #ecfdf5; color: #059669;"><i class="fas fa-eye"></i></div>
-                    <div class="stat-info">
-                        <h3>今日浏览 (PV)</h3>
-                        <div class="value">{{.TodayPV}} <span
-                                style="font-size: 0.6em; color: #94a3b8; font-weight: normal; margin-left: 5px;">/
-                                {{.TodayBotPV}} <small>(人机)</small></span></div>
-                        <div style="font-size: 11px; color: #10b981; margin-top: 4px;">{{.RetentionLabel}}: {{.TotalPV}}
-                            / {{.TotalBotPV}}</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: #f0f9ff; color: #0284c7;"><i
-                            class="fas fa-user-friends"></i></div>
-                    <div class="stat-info">
-                        <h3>今日访客 (IP)</h3>
-                        <div class="value">{{.TodayIP}} <span
-                                style="font-size: 0.6em; color: #94a3b8; font-weight: normal; margin-left: 5px;">/
-                                {{.TodayBotIP}} <small>(人机)</small></span></div>
-                        <div style="font-size: 11px; color: #0ea5e9; margin-top: 4px;">{{.RetentionLabel}}: {{.TotalIP}}
-                            / {{.TotalBotIP}}</div>
-                    </div>
-                </div>
-            </div>
 
-            <div class="card chart-card">
-                <div class="card-header trend-header">
-                    <h2><i class="fas fa-chart-line"></i> 最近 {{.VisitorTrendDays}} 天访客趋势</h2>
-                    <div class="trend-legend">
-                        <span class="trend-legend-item"><span class="trend-dot trend-dot-human"></span> 真人访客</span>
-                        <span class="trend-legend-item"><span class="trend-dot trend-dot-bot"></span> 机器人访客</span>
-                        <span class="trend-meta">按天统计去重 IP</span>
+                <div class="card chart-card">
+                    <div class="card-header trend-header">
+                        <h2><i class="fas fa-chart-line"></i> 最近 {{.VisitorTrendDays}} 天 PV</h2>
+                        <div class="trend-legend">
+                            <span class="trend-legend-item"><span class="trend-dot trend-dot-human"></span> 真人</span>
+                            <span class="trend-legend-item"><span class="trend-dot trend-dot-bot"></span> 机器人</span>
+                        </div>
                     </div>
-                </div>
-                <div class="card-body">
-                    <div class="chart-shell">
-                        <div id="visitor-trend-chart"></div>
+                    <div class="card-body">
+                        <div class="chart-shell">
+                            <div id="pv-trend-chart"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -905,19 +1089,28 @@
                     </div>
                     <div class="card-body">
                         <ul class="system-info-list">
-                            <li><span class="info-label">系统环境</span><span class="info-value">{{.OS}} / {{.Arch}}
-                                    {{.CPUs}}C{{.TotalMem}}G {{.GoVersion}}</span></li>
-                            <li><span class="info-label">程序内存占用/空闲内存</span><span class="info-value">{{.MemUsed}}</span>
+                            <li><span class="info-label">系统内存</span><span class="info-value resource-info">
+                                    <span class="resource-line"><span id="system-memory-summary">{{.SystemMem}}</span><span class="resource-percent" id="system-memory-percent">{{.MemoryPercent}}%</span></span>
+                                    <progress id="system-memory-progress" class="resource-progress {{if ge .MemoryPercent 85}}is-warning{{end}}" value="{{.MemoryPercent}}" max="100"></progress>
+                                    <span class="resource-note">Go 后台程序占用 <span id="go-memory-used">{{.MemUsed}}</span></span>
+                                </span>
                             </li>
-                            <li><span class="info-label">系统负载</span><span class="info-value">{{.SysLoad}}</span>
+                            <li><span class="info-label">系统负载</span><span class="info-value resource-info">
+                                    <span class="resource-line"><span id="system-load-summary">{{.SysLoad}}</span><span class="resource-percent" id="system-load-percent">{{.LoadPercent}}%</span></span>
+                                    <progress id="system-load-progress" class="resource-progress {{if ge .LoadPercent 85}}is-warning{{end}}" value="{{.LoadPercent}}" max="100"></progress>
+                                    <span class="resource-note">服务器已运行 <span id="system-uptime">{{.SystemUptime}}</span></span></span>
                             </li>
-                            <li><span class="info-label">磁盘空间进度</span><span class="info-value">{{.DiskFree}}</span></li>
-                            <li><span class="info-label">存储占用</span><span class="info-value">数据库: {{.DbSize}} / 附件:
-                                    {{.UploadSize}} / 备份: {{.BackupSize}}</span></li>
-                            <li><span class="info-label">Cloudflare 五秒盾</span><span class="info-value">{{.CfShieldStatus}}
-                                    {{if .CfShieldActive}}(自动关闭: {{.CfShieldUntil}}){{end}}
+                            <li><span class="info-label">磁盘空间</span><span class="info-value resource-info">
+                                    <span class="resource-line"><span id="disk-space-summary">{{.DiskFree}}</span><span class="resource-percent" id="disk-space-percent">{{.DiskPercent}}%</span></span>
+                                    <progress id="disk-space-progress" class="resource-progress disk {{if ge .DiskPercent 85}}is-warning{{end}}" value="{{.DiskPercent}}" max="100"></progress>
+                                </span></li>
+                            <li><span class="info-label">存储占用</span><span class="info-value">数据库: <span id="database-size">{{.DbSize}}</span> / 附件:
+                                    <span id="upload-size">{{.UploadSize}}</span> / 备份: <span id="backup-size">{{.BackupSize}}</span></span></li>
+                            <li><span class="info-label">最近成功备份</span><span class="info-value" id="last-backup-time">{{.LastBackupTime}}</span></li>
+                            <li><span class="info-label">Cloudflare 五秒盾</span><span class="info-value"><span id="cf-shield-status">{{.CfShieldStatus}}</span>
+                                    <span id="cf-shield-until">{{if .CfShieldActive}}(自动关闭: {{.CfShieldUntil}}){{end}}</span>
                                     <a href="javascript:void(0);" id="cf-shield-log-trigger" class="info-link"><i class="fas fa-list-ul"></i> 查看日志</a>
-                                    <span class="shield-log-note">{{.CfShieldLatest}}，累计 {{.CfShieldLogCount}} 条</span></span></li>
+                                    <span class="shield-log-note"><span id="cf-shield-latest">{{.CfShieldLatest}}</span>，累计 <span id="cf-shield-log-count">{{.CfShieldLogCount}}</span> 条</span></span></li>
                         </ul>
                     </div>
                 </div>
@@ -1027,9 +1220,11 @@
         const visitorTrendLabels = {{.VisitorTrendLabels}};
         const humanVisitorTrend = {{.HumanVisitorTrend}};
         const botVisitorTrend = {{.BotVisitorTrend}};
+        const humanPVTrend = {{.HumanPVTrend}};
+        const botPVTrend = {{.BotPVTrend}};
 
-        function renderVisitorTrendChart() {
-            const chartHost = document.getElementById('visitor-trend-chart');
+        function renderTrendChart(config) {
+            const chartHost = document.getElementById(config.hostId);
             if (!chartHost) {
                 return;
             }
@@ -1040,12 +1235,12 @@
             }
 
             const labels = Array.isArray(visitorTrendLabels) ? visitorTrendLabels : [];
-            const human = Array.isArray(humanVisitorTrend) ? humanVisitorTrend : [];
-            const bot = Array.isArray(botVisitorTrend) ? botVisitorTrend : [];
+            const human = Array.isArray(config.human) ? config.human : [];
+            const bot = Array.isArray(config.bot) ? config.bot : [];
             const seriesLength = Math.min(labels.length, human.length, bot.length);
 
             if (seriesLength === 0) {
-                chartHost.innerHTML = '<div class="chart-empty">当前时间范围内暂无可展示的访客数据。</div>';
+                chartHost.innerHTML = `<div class="chart-empty">当前时间范围内暂无可展示的${config.emptyLabel}数据。</div>`;
                 return;
             }
 
@@ -1096,20 +1291,20 @@
             }
 
             chartHost.innerHTML = `
-                <svg class="chart-svg" viewBox="0 0 ${chartWidth} ${chartHeight}" preserveAspectRatio="none" role="img" aria-label="最近7天人类访客与机器人访客趋势折线图">
+                <svg class="chart-svg" viewBox="0 0 ${chartWidth} ${chartHeight}" preserveAspectRatio="none" role="img" aria-label="${config.ariaLabel}">
                     <defs>
-                        <linearGradient id="humanAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="humanAreaGradient-${config.hostId}" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="#0984e3" stop-opacity="0.22"></stop>
                             <stop offset="100%" stop-color="#0984e3" stop-opacity="0.02"></stop>
                         </linearGradient>
-                        <linearGradient id="botAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="botAreaGradient-${config.hostId}" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="#10b981" stop-opacity="0.08"></stop>
                             <stop offset="100%" stop-color="#10b981" stop-opacity="0.01"></stop>
                         </linearGradient>
                     </defs>
                     ${gridLines}
-                    <path d="${buildArea(bot)}" fill="url(#botAreaGradient)"></path>
-                    <path d="${buildArea(human)}" fill="url(#humanAreaGradient)"></path>
+                    <path d="${buildArea(bot)}" fill="url(#botAreaGradient-${config.hostId})"></path>
+                    <path d="${buildArea(human)}" fill="url(#humanAreaGradient-${config.hostId})"></path>
                     <path d="${buildPath(bot)}" fill="none" stroke="#10b981" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
                     <path d="${buildPath(human)}" fill="none" stroke="#0984e3" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
                     ${points}
@@ -1140,11 +1335,11 @@
                 tooltip.innerHTML = `
                     <div class="chart-tooltip-day">${labels[index]}</div>
                     <div class="chart-tooltip-row">
-                        <span class="chart-tooltip-name"><span class="trend-dot trend-dot-human"></span>真人访客</span>
+                        <span class="chart-tooltip-name"><span class="trend-dot trend-dot-human"></span>${config.humanName}</span>
                         <span class="chart-tooltip-value">${human[index]}</span>
                     </div>
                     <div class="chart-tooltip-row">
-                        <span class="chart-tooltip-name"><span class="trend-dot trend-dot-bot"></span>机器人访客</span>
+                        <span class="chart-tooltip-name"><span class="trend-dot trend-dot-bot"></span>${config.botName}</span>
                         <span class="chart-tooltip-value">${bot[index]}</span>
                     </div>
                 `;
@@ -1173,7 +1368,96 @@
             chartShell.addEventListener('mouseleave', hideTooltip);
         }
 
-        renderVisitorTrendChart();
+        renderTrendChart({
+            hostId: 'visitor-trend-chart',
+            human: humanVisitorTrend,
+            bot: botVisitorTrend,
+            humanName: '真人访客',
+            botName: '机器人访客',
+            emptyLabel: '访客',
+            ariaLabel: '真人访客与机器人访客趋势折线图'
+        });
+        renderTrendChart({
+            hostId: 'pv-trend-chart',
+            human: humanPVTrend,
+            bot: botPVTrend,
+            humanName: '真人 PV',
+            botName: '机器人 PV',
+            emptyLabel: 'PV',
+            ariaLabel: '真人 PV 与机器人 PV 趋势折线图'
+        });
+
+        let systemResourceRefreshing = false;
+
+        function updateResourceMetric(summaryId, percentId, progressId, summary, percent) {
+            const summaryNode = document.getElementById(summaryId);
+            const percentNode = document.getElementById(percentId);
+            const progressNode = document.getElementById(progressId);
+            const numericPercent = Number(percent);
+            if (!summaryNode || !percentNode || !progressNode || !Number.isFinite(numericPercent)) {
+                return;
+            }
+            summaryNode.textContent = summary || '获取失败';
+            percentNode.textContent = `${numericPercent}%`;
+            progressNode.value = Math.max(0, numericPercent);
+            progressNode.classList.toggle('is-warning', numericPercent >= 85);
+        }
+
+        async function refreshSystemResources() {
+            if (systemResourceRefreshing) {
+                return;
+            }
+            systemResourceRefreshing = true;
+            try {
+                const response = await fetch('{{adminPath}}/dashboard/system-resources', {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!response.ok) {
+                    return;
+                }
+                const data = await response.json();
+                if (!data.success) {
+                    return;
+                }
+
+                updateResourceMetric('system-memory-summary', 'system-memory-percent', 'system-memory-progress', data.memorySummary, data.memoryPercent);
+                updateResourceMetric('system-load-summary', 'system-load-percent', 'system-load-progress', data.loadSummary, data.loadPercent);
+                updateResourceMetric('disk-space-summary', 'disk-space-percent', 'disk-space-progress', data.diskSummary, data.diskPercent);
+
+                const goMemoryNode = document.getElementById('go-memory-used');
+                const uptimeNode = document.getElementById('system-uptime');
+                if (goMemoryNode && data.goMemory) {
+                    goMemoryNode.textContent = data.goMemory;
+                }
+                if (uptimeNode && data.uptime) {
+                    uptimeNode.textContent = data.uptime;
+                }
+
+                const textUpdates = {
+                    'database-size': data.dbSize,
+                    'upload-size': data.uploadSize,
+                    'backup-size': data.backupSize,
+                    'last-backup-time': data.lastBackupTime,
+                    'cf-shield-status': data.cfShieldStatus,
+                    'cf-shield-until': data.cfShieldUntil,
+                    'cf-shield-latest': data.cfShieldLatest,
+                    'cf-shield-log-count': data.cfShieldLogCount
+                };
+                Object.entries(textUpdates).forEach(([id, value]) => {
+                    const node = document.getElementById(id);
+                    if (node && value !== undefined && value !== null) {
+                        node.textContent = String(value);
+                    }
+                });
+            } catch (_) {
+                // 刷新失败时保留页面上一次成功获取的数据。
+            } finally {
+                systemResourceRefreshing = false;
+            }
+        }
+
+        window.setInterval(refreshSystemResources, 10000);
 
         const cfShieldLogModal = document.getElementById('cf-shield-log-modal');
         const cfShieldLogTrigger = document.getElementById('cf-shield-log-trigger');
