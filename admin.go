@@ -3594,7 +3594,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"success": true, "html": preview})
 	})
 
-	admin.POST("/post/ai-proofread", writeProtectMiddleware, func(c *gin.Context) {
+	admin.POST("/post/ai-proofread", func(c *gin.Context) {
 		text := c.PostForm("text")
 		if strings.TrimSpace(text) == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请先输入文章内容"})
@@ -3632,7 +3632,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"success": true, "text": proofreadText})
 	})
 
-	admin.POST("/post/ai-chat", writeProtectMiddleware, func(c *gin.Context) {
+	admin.POST("/post/ai-chat", func(c *gin.Context) {
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2*1024*1024)
 		title := strings.TrimSpace(c.PostForm("title"))
 		text := c.PostForm("text")
