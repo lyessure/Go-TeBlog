@@ -2807,6 +2807,27 @@ func main() {
 		renderProfilePage(c, gin.H{"SuccessMessage": "Google 验证器 2FA 已关闭"})
 	})
 
+	admin.POST("/profile/password/verify", writeProtectMiddleware, func(c *gin.Context) {
+		oldPassword := c.PostForm("old_password")
+		if oldPassword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请输入旧密码"})
+			return
+		}
+
+		username := fmt.Sprint(c.MustGet("username"))
+		var storedHash string
+		if err := db.QueryRow("SELECT password FROM typecho_users WHERE name=?", username).Scan(&storedHash); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "校验失败，请稍后重试"})
+			return
+		}
+		if !checkTypechoHash(oldPassword, storedHash) {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "旧密码不正确"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	})
+
 	admin.POST("/profile", writeProtectMiddleware, func(c *gin.Context) {
 		renderProfile := func(data gin.H) {
 			renderProfilePage(c, data)
@@ -3969,18 +3990,13 @@ func main() {
 
 	admin.POST("/comment/edit/:coid", writeProtectMiddleware, func(c *gin.Context) {
 		coid := c.Param("coid")
-		author := strings.TrimSpace(c.PostForm("author"))
 		content := strings.TrimSpace(c.PostForm("text"))
-		if author == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "作者不能为空"})
-			return
-		}
 		if content == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "评论内容不能为空"})
 			return
 		}
 
-		result, err := db.Exec("UPDATE typecho_comments SET author=?, text=? WHERE coid=?", author, content, coid)
+		result, err := db.Exec("UPDATE typecho_comments SET text=? WHERE coid=?", content, coid)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 			return
@@ -4349,11 +4365,19 @@ func main() {
 		u["Group"] = group
 
 		groupCurrent, _ := c.Get("userGroup")
+		if name == fmt.Sprint(username) {
+			c.HTML(http.StatusForbidden, "admin_error.html", gin.H{
+				"AdminPath":    adminPath,
+				"ErrorTitle":   "不允许修改自己",
+				"ErrorMessage": "请在帐户安全页面管理自己的资料。",
+			})
+			return
+		}
 		if groupCurrent == "visitor" && name != username {
 			c.HTML(http.StatusForbidden, "admin_error.html", gin.H{
 				"AdminPath":    adminPath,
 				"ErrorTitle":   "横向越权拦截",
-				"ErrorMessage": "访客模式下只能编辑自己的资料。",
+				"ErrorMessage": "访客模式下无权编辑其他用户。",
 			})
 			return
 		}
@@ -4369,6 +4393,24 @@ func main() {
 
 	admin.POST("/user/edit/:uid", writeProtectMiddleware, func(c *gin.Context) {
 		uid := c.Param("uid")
+		currentUsername := fmt.Sprint(c.MustGet("username"))
+		var targetUsername string
+		if err := db.QueryRow("SELECT name FROM typecho_users WHERE uid=?", uid).Scan(&targetUsername); err != nil {
+			c.HTML(http.StatusNotFound, "admin_error.html", gin.H{
+				"AdminPath":    adminPath,
+				"ErrorTitle":   "用户不存在",
+				"ErrorMessage": "未找到要修改的用户。",
+			})
+			return
+		}
+		if targetUsername == currentUsername {
+			c.HTML(http.StatusForbidden, "admin_error.html", gin.H{
+				"AdminPath":    adminPath,
+				"ErrorTitle":   "不允许修改自己",
+				"ErrorMessage": "请在帐户安全页面管理自己的资料。",
+			})
+			return
+		}
 		screenName := c.PostForm("screenName")
 		mail := c.PostForm("mail")
 		password := c.PostForm("password")

@@ -619,7 +619,6 @@
 
     <div class="content">
         <div class="comments-container">
-        <h2>评论管理</h2>
         <div class="comments-toolbar">
             <form class="comment-search-form" action="{{adminPath}}/comments" method="GET">
                 <input class="comment-search-input" type="search" name="q" value="{{.SearchQuery}}" placeholder="搜索评论内容" aria-label="搜索评论内容">
@@ -772,8 +771,8 @@
         <div class="reply-modal" onclick="event.stopPropagation()">
             <h3 id="editModalTitle">编辑评论</h3>
             <form id="editForm" method="post">
-                <input id="editAuthor" name="author" type="text" placeholder="请输入作者名" required
-                    style="width: 100%; box-sizing: border-box; border: 1px solid #dbe4ea; border-radius: 10px; padding: 12px; font: inherit; margin-bottom: 12px; outline: none;">
+                <input id="editAuthor" type="text" placeholder="作者不可修改" disabled
+                    style="width: 100%; box-sizing: border-box; border: 1px solid #dbe4ea; border-radius: 10px; padding: 12px; font: inherit; margin-bottom: 12px; outline: none; background: #f1f5f9; color: #64748b; cursor: not-allowed;">
                 <textarea id="editText" name="text" placeholder="请输入评论内容" required></textarea>
                 <div class="reply-modal-actions">
                     <button type="button" class="reply-cancel" onclick="closeEditModal()">取消</button>
@@ -885,7 +884,7 @@
             authorInput.value = button.dataset.author || '';
             textarea.value = button.dataset.text || '';
             mask.style.display = 'flex';
-            authorInput.focus();
+            textarea.focus();
         }
 
         function closeReplyModal(event) {

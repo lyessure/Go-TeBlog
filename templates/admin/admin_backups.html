@@ -192,15 +192,6 @@
             margin-bottom: 14px;
         }
 
-        h2 {
-            margin: 0;
-            color: #1e293b;
-            font-size: 1.8em;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
         .card {
             background: #fff;
             border-radius: 16px;
@@ -415,61 +406,61 @@
             display: inline;
         }
 
-        .modal-backdrop {
+        .vacuum-confirm-popover,
+        .backup-confirm-popover,
+        .delete-confirm-popover {
             position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.45);
             display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            z-index: 100;
-        }
-
-        .modal-backdrop.is-open {
-            display: flex;
-        }
-
-        .confirm-dialog {
-            width: min(420px, 100%);
+            width: 220px;
+            padding: 12px;
+            border: 1px solid #dbe4ea;
+            border-radius: 10px;
             background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
-            border: 1px solid #e2e8f0;
-            overflow: hidden;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+            z-index: 180;
+            box-sizing: border-box;
         }
 
-        .confirm-dialog-header {
-            padding: 20px 22px 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #1e293b;
-            font-weight: 700;
+        .vacuum-confirm-popover p,
+        .backup-confirm-popover p,
+        .delete-confirm-popover p {
+            margin: 0 0 10px;
+            color: #334155;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
-        .confirm-dialog-header i {
-            color: #10b981;
-        }
-
-        .confirm-dialog-header .delete-confirm-icon {
-            color: #ef4444;
-        }
-
-        .confirm-dialog-body {
-            padding: 0 22px 20px;
-            color: #64748b;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .confirm-dialog-actions {
-            padding: 16px 22px;
-            background: #f8fafc;
-            border-top: 1px solid #e2e8f0;
+        .vacuum-confirm-actions,
+        .backup-confirm-actions,
+        .delete-confirm-actions {
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 6px;
+        }
+
+        .vacuum-confirm-actions button,
+        .backup-confirm-actions button,
+        .delete-confirm-actions button {
+            padding: 5px 9px;
+            border: 1px solid #dbe4ea;
+            border-radius: 6px;
+            background: #fff;
+            color: #475569;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .vacuum-confirm-actions .confirm,
+        .backup-confirm-actions .confirm {
+            border-color: #0984e3;
+            background: #0984e3;
+            color: #fff;
+        }
+
+        .delete-confirm-actions .confirm {
+            border-color: #e11d48;
+            background: #e11d48;
+            color: #fff;
         }
 
         .schedule-body {
@@ -666,25 +657,19 @@
     <div class="content">
         <div class="container">
             <header>
-                <h2><i class="fas fa-database" style="color: #0984e3;"></i> 数据备份</h2>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 14px;">
-                    <div style="display: flex; gap: 10px;">
-                        <form action="{{adminPath}}/backups/vacuum" method="POST" class="inline-form" id="vacuumDatabaseForm">
-                            <button type="submit" id="vacuumDatabaseBtn" class="btn btn-outline" {{if .IsBackingUp}}disabled
-                                style="opacity: 0.6; cursor: not-allowed;" {{end}}>
-                                <i class="fas fa-compress-alt"></i> 压缩数据库 (VACUUM)
-                            </button>
-                        </form>
-                        <form action="{{adminPath}}/backups/create" method="POST" class="inline-form">
-                            <button type="submit" id="createBackupBtn" class="btn btn-primary" {{if .IsBackingUp}}disabled
-                                style="opacity: 0.6; cursor: not-allowed;" {{end}}>
-                                <i class="fas fa-plus"></i> 手动备份
-                            </button>
-                        </form>
-                    </div>
-                    <button type="button" id="refreshBackupPanelBtn" class="icon-action-btn" title="刷新备份状态" aria-label="刷新备份状态">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
+                <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                    <form action="{{adminPath}}/backups/vacuum" method="POST" class="inline-form" id="vacuumDatabaseForm">
+                        <button type="submit" id="vacuumDatabaseBtn" class="btn btn-outline" {{if .IsBackingUp}}disabled
+                            style="opacity: 0.6; cursor: not-allowed;" {{end}}>
+                            <i class="fas fa-compress-alt"></i> 压缩数据库 (VACUUM)
+                        </button>
+                    </form>
+                    <form action="{{adminPath}}/backups/create" method="POST" class="inline-form" id="manualBackupForm">
+                        <button type="submit" id="createBackupBtn" class="btn btn-primary" {{if .IsBackingUp}}disabled
+                            style="opacity: 0.6; cursor: not-allowed;" {{end}}>
+                            <i class="fas fa-plus"></i> 手动备份
+                        </button>
+                    </form>
                 </div>
             </header>
 
@@ -837,38 +822,25 @@
             </div>
         </div>
     </div>
-    <div class="modal-backdrop" id="vacuumConfirmModal" aria-hidden="true">
-        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="vacuumConfirmTitle">
-            <div class="confirm-dialog-header">
-                <i class="fas fa-compress-alt"></i>
-                <span id="vacuumConfirmTitle">压缩数据库</span>
-            </div>
-            <div class="confirm-dialog-body">
-                压缩数据库将重新整理文件并释放空间，过程可能需要几秒钟。
-            </div>
-            <div class="confirm-dialog-actions">
-                <button type="button" class="btn btn-outline" id="cancelVacuumBtn">取消</button>
-                <button type="button" class="btn btn-primary" id="confirmVacuumBtn">
-                    <i class="fas fa-check"></i> 确认压缩
-                </button>
-            </div>
+    <div id="vacuumConfirmPopover" class="vacuum-confirm-popover" role="dialog" aria-modal="false" aria-live="polite">
+        <p>确认压缩数据库吗？过程可能需要几秒钟。</p>
+        <div class="vacuum-confirm-actions">
+            <button type="button" id="cancelVacuumBtn">取消</button>
+            <button type="button" class="confirm" id="confirmVacuumBtn">确认压缩</button>
         </div>
     </div>
-    <div class="modal-backdrop" id="deleteConfirmModal" aria-hidden="true">
-        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
-            <div class="confirm-dialog-header">
-                <i class="fas fa-trash-alt delete-confirm-icon"></i>
-                <span id="deleteConfirmTitle">删除备份文件</span>
-            </div>
-            <div class="confirm-dialog-body">
-                确定要删除这个备份文件吗？删除后无法恢复。
-            </div>
-            <div class="confirm-dialog-actions">
-                <button type="button" class="btn btn-outline" id="cancelDeleteBtn">取消</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
-                    <i class="fas fa-trash-alt"></i> 确认删除
-                </button>
-            </div>
+    <div id="backupConfirmPopover" class="backup-confirm-popover" role="dialog" aria-modal="false" aria-live="polite">
+        <p>确认创建手动备份吗？</p>
+        <div class="backup-confirm-actions">
+            <button type="button" id="cancelBackupBtn">取消</button>
+            <button type="button" class="confirm" id="confirmBackupBtn">确认备份</button>
+        </div>
+    </div>
+    <div id="deleteConfirmPopover" class="delete-confirm-popover" role="dialog" aria-modal="false" aria-live="polite">
+        <p>确认删除这个备份文件吗？删除后无法恢复。</p>
+        <div class="delete-confirm-actions">
+            <button type="button" id="cancelDeleteBtn">取消</button>
+            <button type="button" class="confirm" id="confirmDeleteBtn">确认删除</button>
         </div>
     </div>
     <script>
@@ -886,97 +858,138 @@
                 clearTimeout(toast.hideTimer);
                 toast.hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
             };
-            const refreshBtn = document.getElementById('refreshBackupPanelBtn');
-            if (!refreshBtn) return;
             const vacuumForm = document.getElementById('vacuumDatabaseForm');
-            const vacuumModal = document.getElementById('vacuumConfirmModal');
+            const vacuumConfirmPopover = document.getElementById('vacuumConfirmPopover');
             const cancelVacuumBtn = document.getElementById('cancelVacuumBtn');
             const confirmVacuumBtn = document.getElementById('confirmVacuumBtn');
-            const deleteModal = document.getElementById('deleteConfirmModal');
+            const manualBackupForm = document.getElementById('manualBackupForm');
+            const backupConfirmPopover = document.getElementById('backupConfirmPopover');
+            const cancelBackupBtn = document.getElementById('cancelBackupBtn');
+            const confirmBackupBtn = document.getElementById('confirmBackupBtn');
+            const deleteConfirmPopover = document.getElementById('deleteConfirmPopover');
             const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
             const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
             let pendingDeleteForm = null;
 
-            const closeVacuumModal = () => {
-                if (!vacuumModal) return;
-                vacuumModal.classList.remove('is-open');
-                vacuumModal.setAttribute('aria-hidden', 'true');
+            const hideVacuumConfirm = () => {
+                if (!vacuumConfirmPopover) return;
+                vacuumConfirmPopover.style.display = 'none';
             };
 
-            const openVacuumModal = () => {
-                if (!vacuumModal) return;
-                vacuumModal.classList.add('is-open');
-                vacuumModal.setAttribute('aria-hidden', 'false');
-                if (confirmVacuumBtn) confirmVacuumBtn.focus();
+            const showVacuumConfirm = (button) => {
+                if (!vacuumConfirmPopover || !button) return;
+                const rect = button.getBoundingClientRect();
+                vacuumConfirmPopover.style.display = 'block';
+                const popoverWidth = vacuumConfirmPopover.offsetWidth;
+                vacuumConfirmPopover.style.left = Math.max(12, Math.min(rect.right - popoverWidth, window.innerWidth - popoverWidth - 12)) + 'px';
+                vacuumConfirmPopover.style.top = Math.min(rect.bottom + 8, window.innerHeight - vacuumConfirmPopover.offsetHeight - 12) + 'px';
             };
 
             if (vacuumForm) {
                 vacuumForm.addEventListener('submit', (e) => {
                     e.preventDefault();
-                    openVacuumModal();
+                    showVacuumConfirm(e.submitter || document.getElementById('vacuumDatabaseBtn'));
                 });
             }
 
             if (cancelVacuumBtn) {
-                cancelVacuumBtn.addEventListener('click', closeVacuumModal);
+                cancelVacuumBtn.addEventListener('click', hideVacuumConfirm);
             }
 
             if (confirmVacuumBtn && vacuumForm) {
                 confirmVacuumBtn.addEventListener('click', () => {
                     confirmVacuumBtn.disabled = true;
+                    hideVacuumConfirm();
                     vacuumForm.submit();
                 });
             }
 
-            if (vacuumModal) {
-                vacuumModal.addEventListener('click', (e) => {
-                    if (e.target === vacuumModal) closeVacuumModal();
+            const hideBackupConfirm = () => {
+                if (!backupConfirmPopover) return;
+                backupConfirmPopover.style.display = 'none';
+            };
+
+            const showBackupConfirm = (button) => {
+                if (!backupConfirmPopover || !button) return;
+                const rect = button.getBoundingClientRect();
+                backupConfirmPopover.style.display = 'block';
+                const popoverWidth = backupConfirmPopover.offsetWidth;
+                backupConfirmPopover.style.left = Math.max(12, Math.min(rect.right - popoverWidth, window.innerWidth - popoverWidth - 12)) + 'px';
+                backupConfirmPopover.style.top = Math.min(rect.bottom + 8, window.innerHeight - backupConfirmPopover.offsetHeight - 12) + 'px';
+            };
+
+            if (manualBackupForm) {
+                manualBackupForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    showBackupConfirm(e.submitter || document.getElementById('createBackupBtn'));
                 });
             }
 
-            const closeDeleteModal = () => {
-                if (!deleteModal) return;
-                deleteModal.classList.remove('is-open');
-                deleteModal.setAttribute('aria-hidden', 'true');
+            if (cancelBackupBtn) {
+                cancelBackupBtn.addEventListener('click', hideBackupConfirm);
+            }
+
+            if (confirmBackupBtn && manualBackupForm) {
+                confirmBackupBtn.addEventListener('click', () => {
+                    confirmBackupBtn.disabled = true;
+                    hideBackupConfirm();
+                    manualBackupForm.submit();
+                });
+            }
+
+            const hideDeleteConfirm = () => {
+                if (!deleteConfirmPopover) return;
+                deleteConfirmPopover.style.display = 'none';
                 pendingDeleteForm = null;
             };
 
-            const openDeleteModal = (form) => {
-                if (!deleteModal) return;
+            const showDeleteConfirm = (form, button) => {
+                if (!deleteConfirmPopover || !button) return;
                 pendingDeleteForm = form;
-                deleteModal.classList.add('is-open');
-                deleteModal.setAttribute('aria-hidden', 'false');
-                if (confirmDeleteBtn) confirmDeleteBtn.focus();
+                const rect = button.getBoundingClientRect();
+                deleteConfirmPopover.style.display = 'block';
+                const popoverWidth = deleteConfirmPopover.offsetWidth;
+                deleteConfirmPopover.style.left = Math.max(12, Math.min(rect.right - popoverWidth, window.innerWidth - popoverWidth - 12)) + 'px';
+                deleteConfirmPopover.style.top = Math.min(rect.bottom + 8, window.innerHeight - deleteConfirmPopover.offsetHeight - 12) + 'px';
             };
 
             document.addEventListener('submit', (e) => {
                 if (e.target.matches('.backup-delete-form')) {
                     e.preventDefault();
-                    openDeleteModal(e.target);
+                    showDeleteConfirm(e.target, e.submitter || e.target.querySelector('button[type="submit"]'));
                 }
             });
 
             if (cancelDeleteBtn) {
-                cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+                cancelDeleteBtn.addEventListener('click', hideDeleteConfirm);
             }
 
             if (confirmDeleteBtn) {
                 confirmDeleteBtn.addEventListener('click', () => {
                     if (!pendingDeleteForm) return;
                     confirmDeleteBtn.disabled = true;
-                    pendingDeleteForm.submit();
-                });
-            }
-
-            if (deleteModal) {
-                deleteModal.addEventListener('click', (e) => {
-                    if (e.target === deleteModal) closeDeleteModal();
+                    const form = pendingDeleteForm;
+                    hideDeleteConfirm();
+                    form.submit();
                 });
             }
 
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') closeVacuumModal();
-                if (e.key === 'Escape') closeDeleteModal();
+                if (e.key === 'Escape') hideVacuumConfirm();
+                if (e.key === 'Escape') hideBackupConfirm();
+                if (e.key === 'Escape') hideDeleteConfirm();
+            });
+
+            document.addEventListener('click', (e) => {
+                if (vacuumConfirmPopover && vacuumConfirmPopover.style.display === 'block' && !vacuumConfirmPopover.contains(e.target) && !e.target.closest('#vacuumDatabaseForm')) {
+                    hideVacuumConfirm();
+                }
+                if (backupConfirmPopover && backupConfirmPopover.style.display === 'block' && !backupConfirmPopover.contains(e.target) && !e.target.closest('#manualBackupForm')) {
+                    hideBackupConfirm();
+                }
+                if (deleteConfirmPopover && deleteConfirmPopover.style.display === 'block' && !deleteConfirmPopover.contains(e.target) && !e.target.closest('.backup-delete-form')) {
+                    hideDeleteConfirm();
+                }
             });
 
             const bindAutoDismissAlerts = () => {
@@ -1024,10 +1037,6 @@
             const refreshBackupPanel = async (showError) => {
                 if (isRefreshing) return;
                 isRefreshing = true;
-                refreshBtn.disabled = true;
-
-                const icon = refreshBtn.querySelector('i');
-                if (icon) icon.classList.add('fa-spin');
 
                 try {
                     const res = await fetch(window.location.href, {
@@ -1046,8 +1055,6 @@
                         showPageToast('刷新失败，请稍后重试。');
                     }
                 } finally {
-                    if (icon) icon.classList.remove('fa-spin');
-                    refreshBtn.disabled = false;
                     isRefreshing = false;
 
                     if (!isBackingUp() && autoRefreshTimer) {
@@ -1058,8 +1065,6 @@
             };
 
             bindAutoDismissAlerts();
-
-            refreshBtn.addEventListener('click', () => refreshBackupPanel(true));
 
             if (isBackingUp()) {
                 autoRefreshTimer = setInterval(() => refreshBackupPanel(false), 3000);

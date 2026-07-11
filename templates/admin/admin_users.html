@@ -407,13 +407,15 @@
                     </td>
                     <td>{{.ScreenName}}</td>
                     <td>{{.Mail}}</td>
-                    <td><span class="group-badge group-{{.Group}}">{{.Group}}</span></td>
+                    <td><span class="group-badge group-{{.Group}}">{{if eq .Group "administrator"}}管理员{{else if eq .Group "editor"}}编辑{{else if eq .Group "visitor"}}访客{{else}}{{.Group}}{{end}}</span></td>
                     <td>{{if .Logged}}{{.Logged}}{{else}}从未登录{{end}}</td>
                     <td>
                         <div class="action-group">
+                            {{if ne .Name $.Username}}
                             <a href="{{adminPath}}/user/edit/{{.Uid}}" class="icon-action-btn" title="编辑" aria-label="编辑">
                                 <i class="fas fa-pen"></i>
                             </a>
+                            {{end}}
                             {{if and (eq $.UserGroup "administrator") (ne .Name $.Username)}}
                             <button type="button" class="icon-action-btn reset-2fa" title="重置 2FA" aria-label="重置 2FA"
                                 data-reset-url="{{adminPath}}/user/edit/{{.Uid}}/2fa/reset" data-username="{{.Name}}">
