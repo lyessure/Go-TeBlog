@@ -12,7 +12,7 @@
         previewRoot = document.createElement('div');
         previewRoot.className = 'image-preview';
         previewRoot.setAttribute('aria-hidden', 'true');
-        previewRoot.innerHTML = '<button type="button" class="image-preview__close" aria-label="关闭图片预览">&times;</button><div class="image-preview__stage"><img class="image-preview__image" alt=""></div>';
+        previewRoot.innerHTML = '<div class="image-preview__stage"><img class="image-preview__image" alt=""></div><button type="button" class="image-preview__close" style="z-index: 10;" aria-label="关闭图片预览">&times;</button>';
         document.body.appendChild(previewRoot);
 
         previewImage = previewRoot.querySelector('.image-preview__image');
