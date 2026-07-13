@@ -1023,7 +1023,7 @@ func main() {
 
 	// Configure Markdown renderer
 	mdRenderer := goldmark.New(
-		goldmark.WithExtensions(extension.Linkify),
+		goldmark.WithExtensions(extension.Linkify, extension.Strikethrough, extension.Table, extension.TaskList, extension.Footnote),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
 			html.WithUnsafe(),
