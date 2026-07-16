@@ -40,7 +40,7 @@
         }
 
         .sidebar h3 i {
-            color: #0984e3;
+            color: #94a3b8;
         }
 
         .nav-label {
@@ -70,10 +70,10 @@
         }
 
         .sidebar a.active {
-            background: #0984e3;
+            background: #3f5268;
             color: white;
             font-weight: 600;
-            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+            box-shadow: 0 4px 6px rgba(63, 82, 104, 0.28);
         }
 
         .sidebar a i {
@@ -433,14 +433,15 @@
         }
 
         .pagination a:hover {
-            border-color: #0984e3;
-            color: #0984e3;
+            border-color: #475569;
+            color: #334155;
+            background: #f1f5f9;
         }
 
         .pagination .active {
-            background: #0984e3;
+            background: #475569;
             color: white;
-            border-color: #0984e3;
+            border-color: #475569;
             font-weight: 600;
         }
 
@@ -548,8 +549,20 @@
             background: #e5e7eb;
         }
 
+        .btn-category-add {
+            background: #475569;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-category-add:hover {
+            background: #334155;
+        }
+
         .btn-submit-modal {
-            background: #10b981;
+            background: #475569;
             color: white;
             padding: 10px 20px;
             border-radius: 6px;
@@ -561,7 +574,7 @@
         }
 
         .btn-submit-modal:hover {
-            background: #059669;
+            background: #334155;
         }
     </style>
 </head>
@@ -577,7 +590,7 @@
         <div class="list-container table-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div></div>
-                <button type="button" class="btn" onclick="openAddModal()" style="background: #10b981; color: white; display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn btn-category-add" onclick="openAddModal()">
                     <i class="fas fa-plus"></i> 添加分类
                 </button>
             </div>

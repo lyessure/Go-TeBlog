@@ -40,7 +40,7 @@
         }
 
         .sidebar h3 i {
-            color: #0984e3;
+            color: #94a3b8;
         }
 
         .nav-label {
@@ -70,10 +70,10 @@
         }
 
         .sidebar a.active {
-            background: #0984e3;
+            background: #3f5268;
             color: white;
             font-weight: 600;
-            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+            box-shadow: 0 4px 6px rgba(63, 82, 104, 0.28);
         }
 
         .sidebar a i {
@@ -396,7 +396,7 @@
         }
 
         .ref-link {
-            color: #0984e3;
+            color: #1e293b;
             text-decoration: none;
         }
 
@@ -502,13 +502,14 @@
         }
 
         .pager a:hover {
-            color: #0984e3;
-            border-color: #0984e3;
+            color: #334155;
+            border-color: #475569;
+            background: #f1f5f9;
         }
 
         .pager .active {
-            background: #0984e3;
-            border-color: #0984e3;
+            background: #475569;
+            border-color: #475569;
             color: #fff;
         }
 
@@ -569,18 +570,21 @@
 
         .search-btn {
             height: 36px;
-            border: 1px solid #0984e3;
-            background: #0984e3;
+            border: 1px solid #475569;
+            background: #475569;
             color: #fff;
             border-radius: 8px;
             padding: 0 14px;
             cursor: pointer;
             font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .search-btn:hover {
-            background: #0873c4;
-            border-color: #0873c4;
+            background: #334155;
+            border-color: #334155;
         }
 
         .clear-btn {
@@ -623,7 +627,7 @@
         <div class="toolbar">
             <form method="GET" action="{{adminPath}}/attachments" class="search-form">
                 <input type="text" name="q" value="{{.SearchQuery}}" placeholder="按文章标题搜索附件">
-                <button type="submit" class="search-btn">搜索</button>
+                <button type="submit" class="search-btn"><i class="fas fa-search"></i> 搜索</button>
                 {{if .SearchQuery}}
                 <a href="{{adminPath}}/attachments" class="clear-btn">清空</a>
                 {{end}}

@@ -21,7 +21,7 @@
     <div class="nav-label">系统设置</div>
     <a href="{{adminPath}}/users" {{if eq .Tab "users"}}class="active" {{end}}><i class="fas fa-users"></i>
         用户管理</a>
-    <a href="{{adminPath}}/settings" {{if or (eq .ActiveSection "settings") (eq .ActiveSection "skin")}}class="active" {{end}}><i
+    <a href="{{adminPath}}/settings" {{if eq .Tab "settings"}}class="active" {{end}}><i
             class="fas fa-cog"></i> 系统设置</a>
 
     <a href="{{adminPath}}/backups" {{if eq .Tab "backups"}}class="active" {{end}}><i class="fas fa-database"></i>

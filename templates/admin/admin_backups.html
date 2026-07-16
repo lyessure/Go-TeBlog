@@ -40,7 +40,7 @@
         }
 
         .sidebar h3 i {
-            color: #0984e3;
+            color: #94a3b8;
         }
 
         .nav-label {
@@ -70,10 +70,10 @@
         }
 
         .sidebar a.active {
-            background: #0984e3;
+            background: #3f5268;
             color: white;
             font-weight: 600;
-            box-shadow: 0 4px 6px rgba(9, 132, 227, 0.2);
+            box-shadow: 0 4px 6px rgba(63, 82, 104, 0.28);
         }
 
         .sidebar a i {
@@ -275,15 +275,15 @@
         }
 
         .btn-primary {
-            background: #0984e3;
+            background: #475569;
             color: white;
-            box-shadow: 0 4px 6px -1px rgba(9, 132, 227, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(71, 85, 105, 0.3);
         }
 
         .btn-primary:hover {
-            background: #0873c4;
+            background: #334155;
             transform: translateY(-1px);
-            box-shadow: 0 6px 10px -1px rgba(9, 132, 227, 0.4);
+            box-shadow: 0 6px 10px -1px rgba(71, 85, 105, 0.4);
         }
 
         .btn-outline {
@@ -452,8 +452,8 @@
 
         .vacuum-confirm-actions .confirm,
         .backup-confirm-actions .confirm {
-            border-color: #0984e3;
-            background: #0984e3;
+            border-color: #475569;
+            background: #475569;
             color: #fff;
         }
 
@@ -581,7 +581,7 @@
         }
 
         .switch-field input:checked + .switch-toggle {
-            background: #10b981;
+            background: #475569;
         }
 
         .switch-field input:checked + .switch-toggle::after {
@@ -735,10 +735,10 @@
                     </div>
                 </div>
 
-                <div class="alert" style="background: {{if .BackupStorageEnabled}}#eff6ff{{else}}#f8fafc{{end}}; color: {{if .BackupStorageEnabled}}#1d4ed8{{else}}#475569{{end}}; border-color: {{if .BackupStorageEnabled}}#bfdbfe{{else}}#e2e8f0{{end}};">
+                <div class="alert" style="background: #f8fafc; color: #475569; border-color: #e2e8f0;">
                     <i class="fas {{if .BackupStorageEnabled}}fa-cloud{{else}}fa-folder-open{{end}}"></i>
                     <div>
-                        <strong>当前使用的备份存储方式：{{.BackupStorageMode}}<a href="{{adminPath}}/settings#backup" style="margin-left: 8px; color: #0984e3; text-decoration: underline; font-weight: 500;">切换</a></strong>
+                        <strong>当前使用的备份存储方式：{{.BackupStorageMode}}<a href="{{adminPath}}/settings#backup" style="margin-left: 8px; color: #334155; text-decoration: underline; font-weight: 500;">切换</a></strong>
                     </div>
                 </div>
 
